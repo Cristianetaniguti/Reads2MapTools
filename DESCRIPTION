@@ -1,0 +1,16 @@
+Package: genotyping4onemap
+Type: Package
+Title: genotyping4onemap
+Version: 0.1.7
+Author: Cristiane Taniguti
+Depends: R (>= 3.4.0)
+Imports: doParallel,
+         matrixStats,
+         updog,
+         polyRAD
+Maintainer: Cristiane Taniguti <chtaniguti@usp.br>
+Description: Run SuperMASSA, polyRAD and updog software in R interface and return OneMap object
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1

@@ -1,0 +1,217 @@
+---
+title: "Quick start"
+output: html_document
+---
+
+# Packages
+
+```{r}
+library(onemap)
+library(vcfR)
+library(pedigreesim2onemap)
+```
+
+
+# Simulation from scratch
+
+```{r} 
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(40,32), 
+           tot.size.cm = c(100,150), centromere = c(50, 75),
+           n.ind = 200, mk.types = c("A1", "A2", "A3", "A4", "B1.5", "B2.6", "B3.7",
+                                     "C.8", "D1.9", "D1.10", "D1.11", "D1.12", "D1.13",
+                                     "D2.14", "D2.15", "D2.16", "D2.17", "D2.18"),
+           n.types = rep(4,18), pop = "F1",                                           
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen",
+           name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim")
+
+
+```
+
+## Conversion of PedigreeSim outputs to OneMap raw data
+
+```{r}
+pedsim2raw(cross="outcross", 
+           genofile = "sim_genotypes.dat", parent1 = "P1", parent2 = "P1", 
+           out.file = "sim_out.example.raw")
+
+df <- read_onemap(inputfile = "sim_out.example.raw")
+```
+
+
+# Create simulation from a reference VCF and linkage map
+
+```{r}
+library(pedigreesim2onemap)
+library(onemap)
+library(vcfR)
+
+vcf <- read.vcfR("simu.vcf")
+
+ref_map <- read.csv(system.file("ext/ref.map.chr10.taniguti_subset.csv", package = "pedigreesim2onemap"), row.names = 1)
+
+mks_info <- run_pedsim(n.ind = 200, ref.vcf = vcf, ref.map = ref_map,                                     
+                       name.mapfile = "mapfile.map", name.founderfile="founderfile.gen",
+                       name.chromfile="sim.chrom", name.parfile="sim.par",
+                       name.out="sim", seed = 8080)
+```
+
+
+## Conversion of PedigreeSim outputs to VCF
+
+```{r}
+pedsim2vcf(inputfile = "sim_genotypes.dat",
+           map.file = "mapfile.txt",
+           chrom.file = "chromosome.txt",
+           out.file = "temp.vcf",
+           miss.perc = 0,
+           counts = FALSE,
+           pos = mks_info$pos,
+           chr = mks_info$chr,
+           phase = TRUE,
+           reference.alleles = mks_info$ref,
+           use.as.alleles=TRUE)
+
+vcfR.object <- read.vcfR("temp.vcf")
+
+progeny_dat <- vcf2progeny_haplotypes(vcfR.object = vcfR.object, ind.id = "F1_001",
+                                      parent1 = "P1", parent2 = "P2",
+                                      crosstype = "outcross")
+plot(progeny_dat)
+```
+
+## Compare with estimation with OneMap
+
+```{r}
+onemap.obj <- onemap_read_vcfR(vcfR.object, cross = "outcross", parent1 = "P1", parent2 = "P2")
+
+onemap.mis <- filter_missing(onemap.obj, 0.50)
+
+bins <- find_bins(onemap.mis)
+onemap.bins <- create_data_bins(onemap.mis, bins)
+
+twopts <- rf_2pts(onemap.bins)
+
+seq1 <- make_seq(twopts, "all")
+
+map1 <- onemap::map(seq1)
+
+plot(progeny_haplotypes(map1, ind = 1))
+out <- progeny_haplotypes(map1, ind = 1:5, most_likely = T)
+
+forplot <- progeny_haplotypes_counts(x = out)
+plot(x=forplot, by_homolog=F)
+```
+
+
+### OneMapTools Tests
+
+
+```{r}
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(20,29), tot.size.cm = c(100,150), centromere = c(50, 75),
+           n.ind = 200, mk.types = c("A1", "A2", "B3.7", "D1.9", "D1.10", 
+                                     "D2.14", "D2.15"),
+           n.types = rep(7,7), pop = "F1", 
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen", name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim_out")
+
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(20,22), tot.size.cm = c(100,150), centromere = c(50, 75),
+           n.ind = 200, mk.types = c("B3.7", "D1.10", "D2.15"),
+           n.types = rep(14,3), pop = "F1", 
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen", name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim_out_bi")
+
+pedsim2vcf(inputfile = "sim_out_bi_genotypes.dat",
+           map.file = "mapfile.map",
+           chrom.file = "sim.chrom",
+           out.file = "example_bi.vcf",
+           miss.perc = 0,
+           counts = FALSE,
+           phase = TRUE,
+           use.as.alleles=FALSE)
+
+```
+
+
+```{r}
+## Talk with Scott
+# Simulated data
+# Maybe change the filters here to also accept missing data in FILTER (FILTER = ".")
+# For only biallelic is working fine
+vcf2onemap(vcf_file = "multi_phased.vcf", 
+           data_type= "outcross",
+           parent1="P1", 
+           parent2="P2", 
+           outputfile="test.raw", 
+           verify_uniform_offspring=TRUE, 
+           log_filtered_markers = FALSE, 
+           only_phased = FALSE)
+
+library(onemap)
+scott <- read_onemap("test.raw")
+
+# Why there are missing data?
+scott_mis <- filter_missing(scott, 0.25)
+
+# Check bellow and in the VCF: There are some inconsistencies
+colnames(scott$geno)
+scott_mis$segr.type
+
+
+library(vcfR)
+# Unphased
+vcfR.obj <- read.vcfR("multi_unphased.vcf")
+cris <- onemap_read_vcfR(vcfR.obj, cross = "outcross", parent1 = "P1", parent2 = "P2", only_biallelic = F)
+
+colnames(cris$geno)
+cris$segr.type
+
+twopts <- rf_2pts(cris)
+seq1 <- make_seq(twopts, "Chr1")
+
+map1 <- map(seq1)
+rf_graph_table(map1)
+
+# Phased
+vcfR.obj <- read.vcfR("multi_phased.vcf")
+cris2 <- onemap_read_vcfR(vcfR.obj, cross = "outcross", parent1 = "P1", parent2 = "P2", only_biallelic = F)
+
+colnames(cris$geno)
+cris2$segr.type
+
+twopts <- rf_2pts(cris2)
+seq2 <- make_seq(twopts, "all")
+lgs <- group(seq2)
+seq3 <- make_seq(lgs, 2)
+
+map3 <- order_seq(seq3)
+map4 <- make_seq(map3, "force")
+rf_graph_table(map4)
+
+## Empirical data from GATK
+
+vcfR.obj <- read.vcfR("../ext/gatk_noindels_maxmissing0.75_maf0.05.recode_subset.vcf")
+cris <- onemap_read_vcfR(vcfR.obj, cross = "outcross", parent1 = "PT_F", parent2 = "PT_M", only_biallelic = F)
+
+
+# Because of FILTER = PASS
+vcfR.obj@fix[,7] <- "PASS"
+vcfR.obj@fix[,8] <- "."
+vcfR.obj@fix[,3] <- paste0(vcfR.obj@fix[,1], "_", vcfR.obj@fix[,2])
+
+vcf_simu <- data.frame(vcfR.obj@fix, vcfR.obj@gt, stringsAsFactors = FALSE)
+
+add_head(vcf_simu, "emp_PASS.vcf")
+
+# true and false seems not working
+
+vcf2onemap(vcf_file = "emp_PASS.vcf", 
+                    parent1 = "PT_F", parent2 = "PT_M", 
+           data_type = "outcross", outputfile = "test_emp.raw",verify_uniform_offspring = T, 
+           log_filtered_markers = F, only_phased = TRUE, 
+           java.converter.path = "/home/cristiane/github/OneMapTools/converter.jar")
+
+scott <- read_onemap(inputfile = "test_emp.raw")
+```
+
+

@@ -1,0 +1,105 @@
+<html>
+
+<body>
+<font face="Sans">
+<b>
+
+<center>
+<form action="/cgi-bin/launch.cgi"
+      method="post", enctype="multipart/form-data">
+<table>
+
+<tr>
+<td><P><FONT style="font-weight:bold; BACKGROUND-COLOR: blue; color:white">Designed and
+written by Dr. Oliver Serang
+<br>(with advice from Marcelo Mollinari)
+<br>in Junina 2011 while he was a visiting scientist at USP/ESALQ
+<br> in the lab of Prof. Antonio Augusto Franco Garcia.</FONT></P>
+<br>
+
+<td align="right"><P><FONT style="font-weight:bold; BACKGROUND-COLOR:
+red; color:white">SuperMASSA is a handy (+free!)<br>  graphical Bayesian
+inference tool for genotyping polyploids
+<br>(compatible with Sequenom MASSArray and Illumina
+GoldenGate).</FONT></P>
+<br>
+
+<tr><td><img src="/tag_cloud.gif" width=620>
+<td><table style="font-weight:bold">
+<big>
+
+  <tr>
+    <td align="right">Model:
+<td><input type="radio" name="inference" value="f1" checked> F1 Cross<br>
+<input type="radio" name="inference" value="hw">Hardy-Weinberg<br>
+<input type="radio" name="inference" value="ploidy">Don't use population-level<br>&nbsp; &nbsp; information<br>
+  </tr>
+  <tr>
+    <td align="right">Print predicted genotypes:
+    <td><input type="checkbox" name="print_genotypes" value="off">
+  </tr>
+  <tr>
+    <td align="right">Draw genotype scatterplot:
+    <td><input type="checkbox" name="draw_genotypes" value="off">
+  </tr>
+  <tr>
+    <td align="right">Histogram of genotype frequencies:
+    <td><input type="checkbox" name="draw_genotype_histogram" value="off">
+  </tr>
+  <tr>
+    <td align="right">Use exact MAP:
+    <td><input type="checkbox" name="optimal_inference" value="off">
+  </tr>
+
+  <tr>
+    <td align="right">Naive posterior reporting threshold:
+    <td><input type="text" name="naive_posterior_reporting_threshold" size=5 value="0.0">
+  </tr>
+
+  <tr>
+    <td align="right">Ploidy range (low:high:step):
+    <td><input type="text" name="ploidy_range" size=10 value="8:14">
+  </tr>
+  <tr>
+    <td align="right">&sigma; range (low:high:step):
+    <td><input type="text" name="sigma_range" size=10 value="0.01:1:0.05">
+  </tr>
+  <tr>
+    <td align="right">Data file:
+    <td><input type="file" name="file">
+  </tr>
+  <tr>
+    <td align="right">F1 parent data<br>(optional; only for F1 model):
+    <td><input type="file" name="f1_parent_data" value="">
+  </tr>
+
+  <tr><th colspan="2"><input type="submit" value="Run!"></th></tr>
+</big>
+</table>
+  <tr><td><br>
+  <tr align="left">
+<th colspan="2"><P><FONT style="BACKGROUND-COLOR:
+green; color:white">Details can be found in the paper:
+<br>O. Serang, M. Mollinari, and A. A. F. Garcia. "Efficient Exact
+Maximum a Posteriori Computation for Bayesian SNP Genotyping in
+Polyploids." </font></p></th></tr>
+
+</table>
+
+</form>
+</center>
+</font>
+<b>
+<hr>
+It's easy! Format your data like this: names, x-intensity, y-intensity<br>
+<a href="simple_data_1,1x1,1.txt">Demo 1: (1,1) x (1,1)</a> &nbsp; &nbsp; <a href="simple_data_0,2x1,1.txt">Demo 2: (0,2) x (1,1)</a>
+<br>
+*Don't worry, you're data is not stored (besides, when would I find
+the time to use it?!); you're secret's safe with me, Spider-Man!
+</b>
+<!-- <br><br>Sugarcane data from the paper can be found <a href="sugarcane_data.tgz">here</a>. !-->
+
+</b>
+</body>
+
+</html>

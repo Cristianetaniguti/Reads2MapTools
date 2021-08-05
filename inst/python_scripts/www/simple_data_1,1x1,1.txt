@@ -1,0 +1,4 @@
+oliver 0 1
+marcelo 1 0
+augusto 2 2
+joao 2 2
