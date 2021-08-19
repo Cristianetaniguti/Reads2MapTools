@@ -104,6 +104,72 @@ plot(x=forplot, by_homolog=F)
 ```
 
 
+## Creating Onemap simulation examples
+
+```{r}
+
+# F2
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(27,27), tot.size.cm = c(100,100), centromere = c(50, 50),
+           n.ind = 200, mk.types = c("C.A", "D.B", "A.H.B"),
+           n.types = c(40,7,7), pop = "F2", 
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen", name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim")
+
+pedsim2raw(cross="f2 intercross", 
+           genofile = "sim_genotypes.dat", parent1 = "P1", parent2 = "P2", 
+           out.file = "inst/extdata/simu_example_f2.raw", miss.perc = 0)
+
+
+simu_example_f2 <- read_onemap("inst/extdata/simu_example_f2.raw")
+save(simu_example_f2, file = "data/simu_example_f2.RData")
+
+
+# F2 cod
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(27,27), tot.size.cm = c(100,100), centromere = c(50, 50),
+           n.ind = 200, mk.types = c("A.H.B"),
+           n.types = 54, pop = "F2", 
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen", name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim")
+
+pedsim2vcf(inputfile = "sim_genotypes.dat", map.file = "mapfile.map", 
+           chrom.file = "sim.chrom", miss.perc = 0, out.file = "simu_cod_f2.vcf",
+           counts = F,  phase = F, haplo.ref = "P1_1")
+
+# outcross
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(27,29), 
+           tot.size.cm = c(100,100), centromere = c(50, 50),
+           n.ind = 200, mk.types = c("A1", "A2", "A3", "A4", "B1.5", "B2.6", "B3.7",
+                                     "C.8", "D1.9", "D1.10", "D1.11", "D1.12", "D1.13",
+                                     "D2.14", "D2.15", "D2.16", "D2.17", "D2.18"),
+           n.types = c(8,6,1,1,1,1,6,1,7,6,1,1,1,1,6,6,1,1), pop = "F1",                                           
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen",
+           name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim")
+
+pedsim2raw(cross="outcross", 
+           genofile = "sim_genotypes.dat", parent1 = "P1", parent2 = "P2", 
+           out.file = "inst/extdata/simu_example_out.raw", miss.perc = 0)
+
+simu_example_out <- read_onemap("inst/extdata/simu_example_out.raw")
+save(simu_example_out, file = "data/simu_example_out.RData")
+
+
+# outcross cod
+run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(27,29), 
+           tot.size.cm = c(100,100), centromere = c(50, 50),
+           n.ind = 200, mk.types = c("A1", "A2", "B3.7","D1.9", "D1.10", 
+                                     "D2.14", "D2.15"),
+           n.types = rep(8,7), pop = "F1",                                           
+           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen",
+           name.chromfile="sim.chrom", name.parfile="sim.par",
+           name.out="sim")
+
+pedsim2vcf(inputfile = "sim_genotypes.dat", map.file = "mapfile.map", 
+           chrom.file = "sim.chrom", miss.perc = 0, out.file = "simu_cod_out.vcf",
+           counts = F,  phase = F, haplo.ref = "P1_1")
+
+```
+
 ### OneMapTools Tests
 
 
