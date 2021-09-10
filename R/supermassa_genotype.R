@@ -3,12 +3,15 @@
 ##' Runs SuperMassa for multiple markers using doParallel packages
 ##' Updates OneMap object in genotypes, error probabilitie and marker type
 ##' Also removes non-informative markers according to SuperMassa genotyping.
-##' @param vcfR.object object output of the vcfR package
-##' @param onemap.object object of class onemap 
+##' @param vcf path and name of the vcf file
 ##' @param vcf.par Field of VCF that informs the depth of alleles
+#' @param out_vcf path and name of the vcf file to be outputed from the generated onemap object. 
+#' It is important to notice that only onemap informative markers are kept.
 ##' @param parent1 parent 1 identification in vcfR object
 ##' @param parent2 parent 2 identification in vcfR objetc
 ##' @param f1 f1 individual identification if f2 cross type
+##' @param crosstype string defining the cross type, by now it supports only 
+##' outcross and f2 intercross
 ##' @param recovering logical defining if markers should be recovered from VCF
 ##' @param mean_phred the mean phred score of the sequencer technology
 ##' @param cores number of threads 
@@ -17,26 +20,42 @@
 ##' with the genotype errors or the genotype probabilities or NULL to not considered any global error
 ##' @param use_genotypes_errors if \code{TRUE} the error probability of each genotype will be considered in emission function of HMM
 ##' @param use_genotype_probs if \code{TRUE} the probability of each possible genotype will be considered in emission function of HMM
-##'
+##' @param output_info_file define a name for the file with alleles information.
+##' 
 ##' @import doParallel parallel
 ##' 
 ##' @importFrom matrixStats logSumExp
+##' @importFrom vcfR read.vcfR
 ##' 
 ##' @export
-supermassa_genotype <- function(vcfR.object=NULL,
-                             onemap.object= NULL,
-                             vcf.par = c("AD", "DPR"),
-                             parent1="P1",
-                             parent2="P2",
-                             f1=NULL,
-                             recovering = FALSE,
-                             mean_phred = 20, 
-                             cores = 2,
-                             depths = NULL,
-                             global_error = NULL,
-                             use_genotypes_errors = TRUE,
-                             use_genotypes_probs = FALSE,
-                             rm_multiallelic = TRUE){
+supermassa_genotype <- function(vcf=NULL,
+                                vcf.par = c("AD", "DPR"),
+                                out_vcf = NULL,
+                                parent1="P1",
+                                parent2="P2",
+                                crosstype=NULL,
+                                f1=NULL,
+                                recovering = FALSE,
+                                mean_phred = 20, 
+                                cores = 2,
+                                depths = NULL,
+                                global_error = NULL,
+                                use_genotypes_errors = TRUE,
+                                use_genotypes_probs = FALSE,
+                                rm_multiallelic = TRUE,
+                                info_file_name=NULL){
+  
+  info_file_name <- tempfile() 
+  
+  onemap.object <- onemap_read_vcfR(vcf,
+                                    parent1=parent1,
+                                    parent2=parent2,
+                                    f1=f1,
+                                    cross=crosstype, 
+                                    only_biallelic = F, 
+                                    output_info_rds = info_file_name)
+  
+  vcfR.object <- read.vcfR(vcf, verbose = F) # TODO: remove double reading
   
   if(is.null(depths)){
     extracted_depth <- extract_depth(vcfR.object=vcfR.object,
@@ -128,22 +147,24 @@ supermassa_genotype <- function(vcfR.object=NULL,
     }
     extracted_depth$onemap.object <- onemap.object
   }
-
+  
   prepared_depth <- depth_prepare(extracted_depth)
-  class <- class(extracted_depth$onemap.object)[2]
+  obj.class <- class(extracted_depth$onemap.object)[2]
   
   cl <- parallel::makeCluster(cores)
   registerDoParallel(cl)
-  result <- parLapply(cl, prepared_depth, function(x) supermassa_parallel(supermassa_4parallel = x, class=class))
+  clusterExport(cl, c("supermassa_parallel"))
+  result <- parLapply(cl, prepared_depth, function(x) supermassa_parallel(supermassa_4parallel = x, class=obj.class))
   parallel::stopCluster(cl)
   mks <- unlist(lapply(result, "[", 1))
   rm.mk <- unlist(lapply(result, "[", 2))
   mks.type <- unlist(lapply(result, "[", 3))
   geno <- matrix(unlist(lapply(result, "[", 4)), ncol = extracted_depth$n.mks, byrow = FALSE)
   error <- lapply(result, "[[", 5)
-  error <- do.call(rbind, error[!as.logical(rm.mk)])
+  error <- as.matrix(do.call(rbind, error[!as.logical(rm.mk)]))
   
   geno[which(is.na(geno))] <- 0
+  error[which(is.na(error))] <- 1
   
   colnames(geno)  <- extracted_depth$mks
   rownames(geno)  <- extracted_depth$inds
@@ -151,9 +172,9 @@ supermassa_genotype <- function(vcfR.object=NULL,
   n.mar <- length(rm.mk) - sum(rm.mk)
   
   onemap_supermassa <- extracted_depth$onemap.object
-  error$ind <- factor(error$ind, levels = extracted_depth$inds)
-  error <- error[order(error$ind),]
-  onemap_supermassa$error <- as.matrix(error[,3:5])
+  error[,2] <- factor(error[,2], levels = extracted_depth$inds)
+  error <- error[order(error[,2]),]
+  onemap_supermassa$error <- as.matrix(apply(error[,3:5],2,as.numeric))
   colnames(onemap_supermassa$error) <- NULL
   
   if (any(rm.mk == 1)){
@@ -178,22 +199,21 @@ supermassa_genotype <- function(vcfR.object=NULL,
   
   onemap_supermassa$segr.type.num <- mks.type.num
   
-  # Genotypes percent changed
-  idx <- which(colnames(onemap_supermassa$geno) %in% colnames(extracted_depth$onemap.object$geno))
-  idx2 <- which(colnames(extracted_depth$onemap.object$geno) %in% colnames(onemap_supermassa$geno))
-  if(length(idx) > 0){
-    diffe <- sum(!extracted_depth$onemap.object$geno[,idx2] == onemap_supermassa$geno[,idx])
-  } else {diffe <- 0}
-  perc <- (diffe/length(extracted_depth$onemap.object$geno))*100
-  cat(perc, "% of the genotypes were changed by this approach\n")
-  
-  # Recovery markers
-  cat(sum(!colnames(onemap_supermassa$geno) %in% colnames(extracted_depth$onemap.object$geno)),"were recovered from vcf\n")
-  
-  # Removed markers
-  cat(sum(!colnames(extracted_depth$onemap.object$geno) %in% colnames(onemap_supermassa$geno)),
-      "markers from old onemap object were considered non-informative and removed of analysis\n")
-  
+  # Genotypes percent changed - markers have repeated names (splitted multiallelics)
+  # idx <- match(colnames(onemap_supermassa$geno), colnames(extracted_depth$onemap.object$geno))
+  # idx2 <- match(colnames(extracted_depth$onemap.object$geno), colnames(onemap_supermassa$geno))
+  # if(length(idx) > 0){
+  #   diffe <- sum(!extracted_depth$onemap.object$geno[,idx] == onemap_supermassa$geno[,idx2])
+  # } else {diffe <- 0}
+  # perc <- (diffe/length(extracted_depth$onemap.object$geno))*100
+  # cat(perc, "% of the genotypes were changed by this approach\n")
+  # 
+  # # Recovery markers
+  # cat(sum(!colnames(onemap_supermassa$geno) %in% colnames(extracted_depth$onemap.object$geno)),"were recovered from vcf\n")
+  # 
+  # # Removed markers
+  # cat(sum(!colnames(extracted_depth$onemap.object$geno) %in% colnames(onemap_supermassa$geno)),
+  #     "markers from old onemap object were considered non-informative and removed of analysis\n")
   
   maxpostprob <- unlist(apply(onemap_supermassa$error, 1, function(x) x[which.max(x)]))
   maxpostprob <- matrix(maxpostprob, nrow = onemap_supermassa$n.ind, ncol = onemap_supermassa$n.mar, byrow = F)
@@ -216,6 +236,14 @@ supermassa_genotype <- function(vcfR.object=NULL,
   if(!rm_multiallelic){
     if(length(multi.mks) > 0)
       onemap_supermassa.new <- combine_onemap(onemap_supermassa.new, mult.obj)
+  }
+  
+  if(!is.null(out_vcf)){
+    onemap_write_vcfR(onemap.object = onemap_supermassa.new, 
+                      out_vcf = out_vcf, 
+                      input_info_rds = info_file_name,
+                      probs = onemap_supermassa$error, 
+                      parent1 = parent1, parent2 = parent2)
   }
   
   return(onemap_supermassa.new)
@@ -274,7 +302,7 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL){
     pdepth_temp <- paste0("pdepth_temp", supermassa_4parallel[[1]],".txt")
     out_file <- paste0("out_prob",supermassa_4parallel[[1]],".txt")
     
-    command_mass <- paste("python", paste0(system.file(package = "genotyping4onemap"),"/python_scripts/","SuperMASSA.py"),
+    command_mass <- paste("python", paste0(system.file(package = "onemapUTILS"),"/python_scripts/","SuperMASSA.py"),
                           "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range 2 ",
                           "--f1_parent_data", paste0(getwd(),"/",pdepth_temp), 
                           " --print_genotypes --naive_posterior_reporting_threshold 0",
@@ -301,9 +329,9 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL){
     M<-matrix(NA, nrow = length(all.ind.names), ncol = est.ploidy+1,
               dimnames = list(all.ind.names, c(0:est.ploidy)))
     M.temp<-apply(A[,2:(est.ploidy+2)], 2, parse.geno)
-    if(class(M.temp) == "numeric") M.temp <- t(as.matrix(M.temp))
+    if(is(M.temp, "numeric")) M.temp <- t(as.matrix(M.temp))
     M.temp<-M.temp[,order(P[,2], decreasing=TRUE)]
-    if(class(M.temp) == "numeric") M.temp <- t(as.matrix(M.temp))
+    if(is(M.temp,"numeric")) M.temp <- t(as.matrix(M.temp))
     dimnames(M.temp)<-list(as.character(A[,1]), c(0:est.ploidy))
     M[rownames(M.temp),]<-M.temp
     mrk1<-apply(M, 1, function(x) exp(x-matrixStats::logSumExp(x)))

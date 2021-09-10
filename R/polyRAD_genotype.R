@@ -4,8 +4,9 @@
 #' stores the genotypes probabilities or for further multipoint 
 #' analysis
 #' 
-#' @param vcf path to vcf file
-#' @param onemap.obj object of onemap class
+#' @param vcf path and name of the vcf file
+#' @param out_vcf path and name of the vcf file to be outputed from the generated onemap object. 
+#' It is important to notice that only onemap informative markers are kept.
 #' @param parent1 parent 1 identification in vcfR object
 #' @param parent2 parent 2 identification in vcfR objetc
 #' @param f1 f1 individual identification if F2 cross type
@@ -16,6 +17,7 @@
 #' @param use_genotypes_errors if \code{TRUE} the error probability of each genotype will be considered in emission function of HMM
 #' @param use_genotype_probs if \code{TRUE} the probability of each possible genotype will be considered in emission function of HMM
 #' @param rm_multiallelic if \code{TRUE} multiallelic markers will be removed from the output onemap object
+#' 
 #' 
 #' @return onemap object with genotypes updated
 #' 
@@ -36,11 +38,13 @@
 #' and Diploids. Plant and Animal Genome Conference XXVI, 
 #' January 13-17, San Diego, California, USA. doi:10.13140/RG.2.2.27134.08001
 #'
-#' @import polyRAD 
+#' @import polyRAD
+#' @importFrom vcfR read.vcfR 
+#' @importFrom onemap onemap_read_vcfR split_onemap
 #'   
 #' @export
 polyRAD_genotype <- function(vcf=NULL, 
-                             onemap.obj = NULL,
+                             out_vcf = NULL,
                              parent1=NULL,
                              parent2=NULL,
                              f1=NULL,
@@ -48,7 +52,8 @@ polyRAD_genotype <- function(vcf=NULL,
                              global_error = NULL,
                              use_genotypes_errors = TRUE,
                              use_genotypes_probs = FALSE,
-                             rm_multiallelic = TRUE){
+                             rm_multiallelic = TRUE,
+                             info_file_name = NULL){
   # Do the checks
   poly.test <- VCF2RADdata(vcf, phaseSNPs = FALSE, 
                            min.ind.with.reads = 0,
@@ -64,7 +69,6 @@ polyRAD_genotype <- function(vcf=NULL,
   mydata2 <- PipelineMapping2Parents(poly.test, 
                                      freqAllowedDeviation = 0.06,
                                      useLinkage = FALSE)
-  
   
   seed.uniq <- sample(100000, 1)
   Export_MAPpoly(mydata2, paste0("temp.file.", seed.uniq)) 
@@ -82,8 +86,17 @@ polyRAD_genotype <- function(vcf=NULL,
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
     pos <- sapply(temp_list, function(x) if(length(x) > 2) paste0(x[1:2], collapse = "_") else x[1])
   }
-  
+
+  info_file_name <- tempfile()
   # Remove multiallelic markers
+  onemap.obj <- onemap_read_vcfR(vcf,
+                                 parent1=parent1,
+                                 parent2=parent2,
+                                 f1=f1,
+                                 cross=crosstype, 
+                                 only_biallelic = F, 
+                                 output_info_rds = info_file_name)
+  
   multi <- names(which(table(pos) > onemap.obj$n.ind))
   if(length(multi) != 0){
     ## From vcf
@@ -118,17 +131,8 @@ polyRAD_genotype <- function(vcf=NULL,
   # Updating geno matrix
   onemap.obj$geno <- onemap.obj$geno[,keep.mks]
   
-  new.geno <- maxpostprob <- vector()
-  for(i in 1:dim(genotypes)[1]){
-    if(which.max(genotypes[i,3:5]) == 3){
-      new.geno[i] <- 3
-    }else if(which.max(genotypes[i,3:5]) == 2){
-      new.geno[i] <- 2
-    } else if(which.max(genotypes[i,3:5]) == 1){
-      new.geno[i] <- 1
-    }
-    maxpostprob[i] <- unlist(genotypes[i,3:5][which.max(genotypes[i,3:5])])
-  }
+  new.geno <- apply(genotypes[,3:5], 1, which.max)
+  maxpostprob <- apply(genotypes[,3:5], 1, function(x) x[which.max(x)])
   
   new.geno <- matrix(new.geno,nrow = onemap.obj$n.ind, ncol = length(keep.mks))
   maxpostprob <- matrix(maxpostprob,nrow = onemap.obj$n.ind, ncol = length(keep.mks))
@@ -141,7 +145,7 @@ polyRAD_genotype <- function(vcf=NULL,
   genotypes <- genotypes[order(genotypes$V2),]
   
   # Print how many genotypes changed
-  cat("This approach changed", (1- sum(new.geno == onemap.obj$geno)/length(new.geno))*100,"% of the genotypes\n")
+  cat("This approach changed", (1- length(which(new.geno != onemap.obj$geno))/length(new.geno))*100,"% of the genotypes\n")
   
   onemap.obj$geno <- new.geno
   
@@ -176,6 +180,14 @@ polyRAD_genotype <- function(vcf=NULL,
   if(!rm_multiallelic){
     if(length(multi) > 0)
       onemap.obj.new <- combine_onemap(onemap.obj.new, mult.obj)
+  }
+  
+  if(!is.null(out_vcf)){
+    onemap_write_vcfR(onemap.object = onemap.obj.new, 
+                      out_vcf = out_vcf, 
+                      input_info_rds = info_file_name,
+                      probs = probs, 
+                      parent1 = parent1, parent2 = parent2)
   }
   
   return(onemap.obj.new)
