@@ -31,12 +31,12 @@ onemap_write_vcfR <- function(onemap.object,
   
   info <- readRDS(input_info_rds)
   info$POS <- as.character(as.numeric(info$POS))
-  vcf.template@fix <- as.matrix(cbind(info[,-c(6:9)], QUAL = NA, FILTER = "PASS", INFO = NA))
   
   # GT
   GT <- t(onemap.object$geno)
-  idx.m <- match(colnames(onemap.object$geno), vcf.template@fix[,3])
+  idx.m <- match(colnames(onemap.object$geno), info$ID)
   info <- info[idx.m,]
+  vcf.template@fix <- as.matrix(cbind(info[,-c(6:9)], QUAL = NA, FILTER = "PASS", INFO = NA))
   
   GT[which(onemap.object$geno == 0)] <- "./."
   GT[which(onemap.object$geno == 2)] <- "0/1"

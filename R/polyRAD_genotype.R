@@ -80,7 +80,7 @@ polyRAD_genotype <- function(vcf=NULL,
   # this will change according to the vcf - bug!! Need attention!
   if(any(grepl(":", as.character(genotypes$V1)))){
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
-    temp <- sapply(temp_list, "[", 1)
+    temp <- sapply(temp_list, function(x) paste0(x[-c(length(x)-1,length(x))], collapse = "_"))
     pos <- gsub(":", "_", temp)
   } else {
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
