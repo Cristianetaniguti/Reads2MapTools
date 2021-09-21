@@ -4,13 +4,16 @@
 #' stores the genotypes probabilities or for further multipoint 
 #' analysis
 #' 
-#' @param vcfR.object object output of the vcfR package
-#' @param onemap.object object of class onemap 
+#' @param vcf path and name of the vcf file
 #' @param vcf.par Field of VCF that informs the depth of alleles
+#' @param out_vcf path and name of the vcf file to be outputed from the generated onemap object. 
+#' It is important to notice that only onemap informative markers are kept.
 #' @param f1 f1 individual identification if f2 cross type
 #' @param recovering logical defining if markers should be recovered from VCF
 #' @param mean_phred the mean phred score of the sequencer technology
 #' @param cores number of threads 
+#' @param crosstype string defining the cross type, by now it supports only 
+#' outcross and f2 intercross
 #' @param depths list containing a matrix for ref and other for alt allele counts, samples ID in colum and markers ID in rows
 #' @param parent1 parent 1 identification in vcfR object
 #' @param parent2 parent 2 identification in vcfR objetc
@@ -19,6 +22,7 @@
 #' @param use_genotypes_errors if \code{TRUE} the error probability of each genotype will be considered in emission function of HMM
 #' @param use_genotype_probs if \code{TRUE} the probability of each possible genotype will be considered in emission function of HMM
 #' @param rm_multiallelic if \code{TRUE} multiallelic markers will be removed from the output onemap object 
+#' @param output_info_file define a name for the file with alleles information.
 #' 
 #' @return onemap object with genotypes updated 
 #' 
@@ -26,7 +30,8 @@
 #' @seealso \code{\link[onemap]{extract_depth}} 
 #'     \code{\link[onemap]{binom_genotype}} and 
 #'     \url{https://github.com/dcgerard/updog}.
-#'
+#'     
+#'     
 #' @references 
 #'
 #' Gerard, D., Ferrão L.F.V., Garcia, A.A.F., & Stephens, M. (2018). Harnessing 
@@ -34,14 +39,16 @@
 #' Messy Sequencing Data. bioRxiv. doi: 10.1101/281550.
 #'
 #' @import foreach doParallel updog
+#' @importFrom vcfR read.vcfR
 #'   
 #' @export
-updog_genotype <- function(vcfR.object=NULL,
-                           onemap.object= NULL,
+updog_genotype <- function(vcf=NULL,
                            vcf.par = c("AD", "DPR"),
+                           out_vcf = NULL,
                            parent1="P1",
                            parent2="P2",
                            f1=NULL,
+                           crosstype=NULL,
                            recovering = FALSE,
                            mean_phred = 20, 
                            cores = 2,
@@ -57,6 +64,17 @@ updog_genotype <- function(vcfR.object=NULL,
   } else if (!(use_genotypes_errors | use_genotypes_probs)){
     stop("You should choose one approach to be considered in emission function of HMM.`use_genotype_errors` or `use_genotype_probs`")
   }
+  
+  info_file_name <- tempfile()
+  onemap.object <- onemap_read_vcfR(vcf,
+                                    parent1=parent1,
+                                    parent2=parent2,
+                                    f1=f1,
+                                    cross=crosstype, 
+                                    only_biallelic = F, 
+                                    output_info_rds = info_file_name)
+  
+  vcfR.object <- read.vcfR(vcf, verbose = F) # TODO: remove double reading
   
   if(is.null(depths)){
     depth_matrix <- extract_depth(vcfR.object=vcfR.object,
@@ -334,27 +352,6 @@ updog_genotype <- function(vcfR.object=NULL,
   onemap_updog$CHROM <- depth_matrix$CHROM[comp1]
   onemap_updog$POS <- as.numeric(as.character(depth_matrix$POS))[comp1]
   
-  # If some marker in onemap object is now non-informative and didn't recover any marker                         
-  if(length(colnames(onemap.object$geno)) - length(comp) > 0 & length(mks) == length(comp)){
-    cat(length(colnames(onemap.object$geno)) - length(comp),
-        "markers of original onemap object were considered non-informative after new SNP calling and were removed from analysis \n")
-    cat("This approach changed", (sum(conv_geno != onemap.object$geno[,comp])/length(onemap.object$geno[,comp]))*100, "% of the genotypes\n")
-    
-    # If some marker in onemap object are now non-informative and some marker were recoved from vcf                
-  } else if(length(colnames(onemap.object$geno)) - length(comp) > 0 & length(mks) > length(comp)){
-    cat(length(mks) - length(colnames(onemap.object$geno)[comp]), "markers were recovered from vcf file and added to onemap object \n")
-    comp1 <- which(mks %in% colnames(onemap.object$geno))
-    cat("This approach changed", (sum(conv_geno[,comp1] != onemap.object$geno[,comp])/length(onemap.object$geno[,comp]))*100, "% of the genotypes \
-n")
-    
-    # If any marker in onemap object were considered non-informative and some marker were recovered from vcf       
-  } else if(length(colnames(onemap.object$geno)) - length(comp) == 0 & length(mks) > length(comp)){
-    comp1 <- which(mks %in% colnames(onemap.object$geno))
-    cat("This approach changed", (sum(conv_geno[,comp1] != onemap.object$geno)/length(onemap.object$geno))*100, "% of the genotypes from biallelic markers\n")
-  } else{
-    cat("This approach changed", (sum(conv_geno != onemap.object$geno)/length(onemap.object$geno))*100, "% of the genotypes from biallelic markers\n")
-  }
-  
   cat("New onemap object contains", length(mks), "biallelic markers\n")
   
   maxpostprob <- t(1- maxpostprob)
@@ -384,6 +381,15 @@ n")
     if(length(multi.mks) > 0)
       onemap_updog.new <- combine_onemap(onemap_updog.new, mult.obj)
   }
+  
+  if(!is.null(out_vcf)){
+    onemap_write_vcfR(onemap.object = onemap_updog.new, 
+                      out_vcf = out_vcf, 
+                      input_info_rds = info_file_name,
+                      probs = genotypes_probs, 
+                      parent1 = parent1, parent2 = parent2)
+  }
+  
   structure(onemap_updog.new)
 }
 

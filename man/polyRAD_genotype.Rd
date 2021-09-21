@@ -6,7 +6,7 @@
 \usage{
 polyRAD_genotype(
   vcf = NULL,
-  onemap.obj = NULL,
+  out_vcf = NULL,
   parent1 = NULL,
   parent2 = NULL,
   f1 = NULL,
@@ -14,13 +14,15 @@ polyRAD_genotype(
   global_error = NULL,
   use_genotypes_errors = TRUE,
   use_genotypes_probs = FALSE,
-  rm_multiallelic = TRUE
+  rm_multiallelic = TRUE,
+  info_file_name = NULL
 )
 }
 \arguments{
-\item{vcf}{path to vcf file}
+\item{vcf}{path and name of the vcf file}
 
-\item{onemap.obj}{object of onemap class}
+\item{out_vcf}{path and name of the vcf file to be outputed from the generated onemap object. 
+It is important to notice that only onemap informative markers are kept.}
 
 \item{parent1}{parent 1 identification in vcfR object}
 

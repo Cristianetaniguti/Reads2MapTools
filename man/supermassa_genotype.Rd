@@ -7,11 +7,12 @@ Updates OneMap object in genotypes, error probabilitie and marker type
 Also removes non-informative markers according to SuperMassa genotyping.}
 \usage{
 supermassa_genotype(
-  vcfR.object = NULL,
-  onemap.object = NULL,
+  vcf = NULL,
   vcf.par = c("AD", "DPR"),
+  out_vcf = NULL,
   parent1 = "P1",
   parent2 = "P2",
+  crosstype = NULL,
   f1 = NULL,
   recovering = FALSE,
   mean_phred = 20,
@@ -20,19 +21,24 @@ supermassa_genotype(
   global_error = NULL,
   use_genotypes_errors = TRUE,
   use_genotypes_probs = FALSE,
-  rm_multiallelic = TRUE
+  rm_multiallelic = TRUE,
+  info_file_name = NULL
 )
 }
 \arguments{
-\item{vcfR.object}{object output of the vcfR package}
-
-\item{onemap.object}{object of class onemap}
+\item{vcf}{path and name of the vcf file}
 
 \item{vcf.par}{Field of VCF that informs the depth of alleles}
+
+\item{out_vcf}{path and name of the vcf file to be outputed from the generated onemap object. 
+It is important to notice that only onemap informative markers are kept.}
 
 \item{parent1}{parent 1 identification in vcfR object}
 
 \item{parent2}{parent 2 identification in vcfR objetc}
+
+\item{crosstype}{string defining the cross type, by now it supports only 
+outcross and f2 intercross}
 
 \item{f1}{f1 individual identification if f2 cross type}
 
@@ -50,6 +56,8 @@ with the genotype errors or the genotype probabilities or NULL to not considered
 \item{use_genotypes_errors}{if \code{TRUE} the error probability of each genotype will be considered in emission function of HMM}
 
 \item{use_genotype_probs}{if \code{TRUE} the probability of each possible genotype will be considered in emission function of HMM}
+
+\item{output_info_file}{define a name for the file with alleles information.}
 }
 \description{
 Runs SuperMassa for multiple markers using doParallel packages
