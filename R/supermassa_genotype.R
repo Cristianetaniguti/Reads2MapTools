@@ -151,7 +151,7 @@ supermassa_genotype <- function(vcf=NULL,
   prepared_depth <- depth_prepare(extracted_depth)
   obj.class <- class(extracted_depth$onemap.object)[2]
   
-  cl <- parallel::makeCluster(cores)
+  cl <- parallel::makeCluster(as.numeric(cores))
   registerDoParallel(cl)
   clusterExport(cl, c("supermassa_parallel"))
   result <- parLapply(cl, prepared_depth, function(x) supermassa_parallel(supermassa_4parallel = x, class=obj.class))

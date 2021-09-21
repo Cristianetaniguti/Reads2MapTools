@@ -212,7 +212,7 @@ updog_genotype <- function(vcf=NULL,
   geno_matrix <- maxpostprob <- matrix(rep(NA,dim(osize)[2]*dim(osize)[1]),nrow=dim(osize)[1])
   P1 <- P2 <- rep(NA, n.mks)
   if(is(onemap.object, "f2")){
-    cl <- parallel::makeCluster(cores)
+    cl <- parallel::makeCluster(as.numeric(cores))
     doParallel::registerDoParallel(cl = cl)
     gene_est <- foreach(i = 1:n.mks,
                         .combine = 'c',
@@ -249,8 +249,8 @@ updog_genotype <- function(vcf=NULL,
     P2 <- unlist(sapply(sapply(gene_est, "[", 8), "[", 1))
   }
   
-  temp1 <- lapply(gene_est, "[[", 10)
-  temp2 <- lapply(gene_est, "[[", 11)
+  temp1 <- lapply(gene_est, "[[", 9)
+  temp2 <- lapply(gene_est, "[[", 10)
   
   for(i in 1:n.mks){
     geno_matrix[i,] <- temp1[[i]]
