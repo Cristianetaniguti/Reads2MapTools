@@ -26,6 +26,7 @@
 ##' 
 ##' @importFrom matrixStats logSumExp
 ##' @importFrom vcfR read.vcfR
+##' @import onemap
 ##' 
 ##' @export
 supermassa_genotype <- function(vcf=NULL,

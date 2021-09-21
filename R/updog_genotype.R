@@ -40,6 +40,7 @@
 #'
 #' @import foreach doParallel updog
 #' @importFrom vcfR read.vcfR
+#' @import onemap
 #'   
 #' @export
 updog_genotype <- function(vcf=NULL,

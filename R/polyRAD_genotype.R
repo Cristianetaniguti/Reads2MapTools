@@ -40,7 +40,7 @@
 #'
 #' @import polyRAD
 #' @importFrom vcfR read.vcfR 
-#' @importFrom onemap onemap_read_vcfR split_onemap
+#' @import onemap 
 #'   
 #' @export
 polyRAD_genotype <- function(vcf=NULL, 
