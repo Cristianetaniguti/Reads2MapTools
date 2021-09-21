@@ -230,7 +230,7 @@ updog_genotype <- function(vcf=NULL,
     
     P1 <- unlist(sapply(sapply(gene_est, "[", 8), "[", 1))
   } else if(is(onemap.object, "outcross")){
-    cl <- parallel::makeCluster(cores)
+    cl <- parallel::makeCluster(as.numeric(cores))
     doParallel::registerDoParallel(cl = cl)
     gene_est <- foreach(i = 1:n.mks) %dopar% {
       ## fit flexdog                                                                                                                             
