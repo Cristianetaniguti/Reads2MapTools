@@ -1,7 +1,7 @@
 Package: onemapUTILS
 Type: Package
 Title: onemapUTILS
-Version: 0.2.0
+Version: 0.3.0
 Author: Cristiane Taniguti
 Depends: R (>= 4.0)
 Imports: doParallel,
