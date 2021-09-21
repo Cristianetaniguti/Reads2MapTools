@@ -49,7 +49,13 @@ polyRAD_genotype <- function(vcf=NULL,
                              use_genotypes_errors = TRUE,
                              use_genotypes_probs = FALSE,
                              rm_multiallelic = TRUE){
+  
   # Do the checks
+  if(is.null(onemap.obj)){
+    onemap.obj <- onemap_read_vcfR(vcf = vcf,cross = crosstype, 
+                                   parent1 = parent1, parent2 = parent2, only_biallelic = T)
+  }
+  
   poly.test <- VCF2RADdata(vcf, phaseSNPs = FALSE, 
                            min.ind.with.reads = 0,
                            min.ind.with.minor.allele = 0)
@@ -76,7 +82,7 @@ polyRAD_genotype <- function(vcf=NULL,
   # this will change according to the vcf - bug!! Need attention!
   if(any(grepl(":", as.character(genotypes$V1)))){
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
-    temp <- sapply(temp_list, "[", 1)
+    temp <- sapply(temp_list, function(x) paste0(x[-c(length(x)-1,length(x))], collapse = "_"))
     pos <- gsub(":", "_", temp)
   } else {
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
