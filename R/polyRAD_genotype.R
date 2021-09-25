@@ -40,7 +40,7 @@
 #'
 #' @import polyRAD
 #' @importFrom vcfR read.vcfR 
-#' @importFrom onemap onemap_read_vcfR split_onemap
+#' @import onemap 
 #'   
 #' @export
 polyRAD_genotype <- function(vcf=NULL, 
@@ -53,7 +53,41 @@ polyRAD_genotype <- function(vcf=NULL,
                              use_genotypes_errors = TRUE,
                              use_genotypes_probs = FALSE,
                              rm_multiallelic = TRUE,
-                             info_file_name = NULL){
+                             info_file_name = NULL,
+                             recovering = FALSE){
+  
+  vcfR.object <- read.vcfR(vcf, verbose = F)
+  
+  info_file_name <- tempfile() 
+  onemap.obj <- onemap_read_vcfR(vcfR.object = vcfR.object,
+                                 parent1=parent1,
+                                 parent2=parent2,
+                                 f1=f1,
+                                 cross=crosstype, 
+                                 only_biallelic = F)
+  
+  MKS <- vcfR.object@fix[,3]
+  if (any(MKS == "." | is.na(MKS))) {
+    MKS <- paste0(vcfR.object@fix[,1],"_", vcfR.object@fix[,2])
+    # Add tag if is duplicated positions (split form of mnps)
+    for(i in 2:length(MKS)) {
+      if(MKS[i] == paste0(strsplit(MKS[i-1], "_")[[1]][1:2], collapse = "_")) {
+        z <- z + 1
+        MKS[i] <- paste0(MKS[i], "_",z)
+      } else {
+        z <- 0
+      }
+    }
+  }
+  
+  info <- data.frame(CHROM = vcfR.object@fix[,1], 
+                     POS = as.numeric(vcfR.object@fix[,2]), 
+                     ID = MKS, 
+                     REF = vcfR.object@fix[,4], 
+                     ALT = vcfR.object@fix[,5])
+  
+  saveRDS(info, file = info_file_name)
+  
   # Do the checks
   poly.test <- VCF2RADdata(vcf, phaseSNPs = FALSE, 
                            min.ind.with.reads = 0,
@@ -69,6 +103,8 @@ polyRAD_genotype <- function(vcf=NULL,
   mydata2 <- PipelineMapping2Parents(poly.test, 
                                      freqAllowedDeviation = 0.06,
                                      useLinkage = FALSE)
+  
+  
   
   seed.uniq <- sample(100000, 1)
   Export_MAPpoly(mydata2, paste0("temp.file.", seed.uniq)) 
@@ -86,16 +122,6 @@ polyRAD_genotype <- function(vcf=NULL,
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
     pos <- sapply(temp_list, function(x) if(length(x) > 2) paste0(x[1:2], collapse = "_") else x[1])
   }
-
-  info_file_name <- tempfile()
-  # Remove multiallelic markers
-  onemap.obj <- onemap_read_vcfR(vcf,
-                                 parent1=parent1,
-                                 parent2=parent2,
-                                 f1=f1,
-                                 cross=crosstype, 
-                                 only_biallelic = F, 
-                                 output_info_rds = info_file_name)
   
   multi <- names(which(table(pos) > onemap.obj$n.ind))
   if(length(multi) != 0){
@@ -118,9 +144,56 @@ polyRAD_genotype <- function(vcf=NULL,
     }
   }
   
-  pos.onemap <- colnames(onemap.obj$geno)
-  genotypes <- genotypes[which(pos%in%pos.onemap),]
-  keep.mks <- which(pos.onemap%in%unique(pos))
+  parent1.geno <-t(mydata2$likelyGeno_donor)
+  
+  mks <- sapply(strsplit(rownames(parent1.geno), "_"), function(x) {
+    paste0(x[-c(length(x)-1, length(x))], collapse = "_")
+  })
+  mks <- gsub(":", "_", mks)
+  geno <- split(parent1.geno, mks)
+  P1 <- sapply(geno, function(x){
+    if(anyNA(x)){
+      return("./.")
+    }else if(all(x == c(1,1))){
+      return("0/1")
+    } else if(all(x == c(2,0))){
+      return("0/0")
+    } else if(all(x == c(0,2))){
+      return("1/1")
+    }
+  })
+  names(P1) <- unique(mks)
+  
+  parent2.geno <- t(mydata2$likelyGeno_recurrent)
+  mks <- sapply(strsplit(rownames(parent2.geno), "_"), function(x) {
+    paste0(x[-c(length(x)-1, length(x))], collapse = "_")
+  })
+  mks <- gsub(":", "_", mks)
+  geno <- split(parent2.geno, mks)
+  P2 <- sapply(geno, function(x){
+    if(anyNA(x)){
+      return("./.")
+    }else if(all(x == c(1,1))){
+      return("0/1")
+    } else if(all(x == c(2,0))){
+      return("0/0")
+    } else if(all(x == c(0,2))){
+      return("1/1")
+    }
+  })
+  names(P2) <- unique(mks)
+
+  unq.pos <- unique(pos)
+  P1 <- P1[which(names(P1) %in% unq.pos)]
+  P2 <- P2[which(names(P2) %in% unq.pos)]
+
+  if(!recovering){
+    pos.onemap <- colnames(onemap.obj$geno)
+    genotypes <- genotypes[which(pos%in%pos.onemap),]
+    pos <- pos[which(pos%in%pos.onemap)]
+    P1 <- P1[which(names(P1) %in% pos.onemap)]
+    P2 <- P2[which(names(P2) %in% pos.onemap)]
+  }
   
   # Remove parents
   if(crosstype=="f2 intercross"){
@@ -129,14 +202,12 @@ polyRAD_genotype <- function(vcf=NULL,
   }
   
   # Updating geno matrix
-  onemap.obj$geno <- onemap.obj$geno[,keep.mks]
-  
   new.geno <- apply(genotypes[,3:5], 1, which.max)
   maxpostprob <- apply(genotypes[,3:5], 1, function(x) x[which.max(x)])
   
-  new.geno <- matrix(new.geno,nrow = onemap.obj$n.ind, ncol = length(keep.mks))
-  maxpostprob <- matrix(maxpostprob,nrow = onemap.obj$n.ind, ncol = length(keep.mks))
-  colnames(new.geno) <- colnames(maxpostprob) <- colnames(onemap.obj$geno)
+  new.geno <- matrix(new.geno,nrow = onemap.obj$n.ind, ncol = length(unique(pos)))
+  maxpostprob <- matrix(maxpostprob,nrow = onemap.obj$n.ind, ncol = length(unique(pos)))
+  colnames(new.geno) <- colnames(maxpostprob) <- unique(pos)
   rownames(new.geno) <- rownames(maxpostprob) <- rownames(onemap.obj$geno)
   
   # Same order priority: individuals, markers
@@ -144,18 +215,29 @@ polyRAD_genotype <- function(vcf=NULL,
   
   genotypes <- genotypes[order(genotypes$V2),]
   
-  # Print how many genotypes changed
-  cat("This approach changed", (1- length(which(new.geno != onemap.obj$geno))/length(new.geno))*100,"% of the genotypes\n")
+  # marker type
+  mk.type <- rep(NA, length(P1))
+  mk.type.num <- rep(NA, length(P1))
   
-  onemap.obj$geno <- new.geno
+  idx <- which(P1 == "0/1" & P2 == "0/1")
+  mk.type[idx] <- "B3.7"
+  mk.type.num[idx] <- 4
+  idx <- which((P1 == "0/1" & P2 == "0/0") | (P1 == "0/1" & P2 == "1/1"))
+  mk.type[idx] <- "D1.10"
+  mk.type.num[idx] <- 6
+  idx <- which((P1 == "0/0" & P2 == "0/1") | (P1 == "1/1" & P2 == "0/1"))
+  mk.type[idx] <- "D2.15"
+  mk.type.num[idx] <- 7
+  keep.mks <- which(!is.na(mk.type.num))
   
   # Removing markers
-  onemap.obj$n.mar <- length(keep.mks)
-  onemap.obj$segr.type <- onemap.obj$segr.type[keep.mks]
-  onemap.obj$segr.type.num <- onemap.obj$segr.type.num[keep.mks]
-  onemap.obj$CHROM <- onemap.obj$CHROM[keep.mks]
-  onemap.obj$POS <- onemap.obj$POS[keep.mks]
-  
+  onemap.obj$geno <- new.geno[,keep.mks]
+  onemap.obj$n.mar <- dim(onemap.obj$geno)[2]
+  onemap.obj$segr.type <- mk.type[keep.mks]
+  onemap.obj$segr.type.num <- mk.type.num[keep.mks]
+  onemap.obj$CHROM <- info$CHROM[info$ID %in% colnames(onemap.obj$geno)]
+  onemap.obj$POS <- info$POS[info$ID %in% colnames(onemap.obj$geno)]
+
   # Avoiding geno 3 in D1.10 and D2.15
   idx <- which(onemap.obj$segr.type == "D1.10")
   onemap.obj$geno[,idx][onemap.obj$geno[,idx] == 3] <- 1
@@ -163,17 +245,21 @@ polyRAD_genotype <- function(vcf=NULL,
   onemap.obj$geno[,idx][onemap.obj$geno[,idx] == 3] <- 1
   
   probs <- as.matrix(genotypes[,3:5])
+  probs <- probs[keep.mks + rep(c(0:(onemap.obj$n.ind-1))*onemap.obj$n.mar, each=length(keep.mks)),]
+  
+  maxpostprob <- maxpostprob[,keep.mks]
+  colnames(onemap.obj$geno) <- unq.pos[keep.mks]
   
   if(use_genotypes_probs){
-    onemap.obj.new <- create_probs(onemap.obj = onemap.obj,
+    onemap.obj.new <- create_probs(input.obj = onemap.obj,
                                    genotypes_probs = probs,
                                    global_error = global_error)
   } else if(use_genotypes_errors){
-    onemap.obj.new <- create_probs(onemap.obj = onemap.obj,
+    onemap.obj.new <- create_probs(input.obj = onemap.obj,
                                    genotypes_errors = 1- maxpostprob,
                                    global_error = global_error)
   } else if(!is.null(global_error)){
-    onemap.obj.new <- create_probs(onemap.obj = onemap.obj,
+    onemap.obj.new <- create_probs(input.obj = onemap.obj,
                                    global_error = global_error)
   }
   
@@ -187,7 +273,10 @@ polyRAD_genotype <- function(vcf=NULL,
                       out_vcf = out_vcf, 
                       input_info_rds = info_file_name,
                       probs = probs, 
-                      parent1 = parent1, parent2 = parent2)
+                      parent1.id = parent1, 
+                      parent2.id = parent2, 
+                      parent1.geno = P1,
+                      parent2.geno = P2)
   }
   
   return(onemap.obj.new)

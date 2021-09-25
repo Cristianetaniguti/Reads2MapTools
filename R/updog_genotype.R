@@ -40,6 +40,7 @@
 #'
 #' @import foreach doParallel updog
 #' @importFrom vcfR read.vcfR
+#' @import onemap
 #'   
 #' @export
 updog_genotype <- function(vcf=NULL,
@@ -65,16 +66,48 @@ updog_genotype <- function(vcf=NULL,
     stop("You should choose one approach to be considered in emission function of HMM.`use_genotype_errors` or `use_genotype_probs`")
   }
   
-  info_file_name <- tempfile()
-  onemap.object <- onemap_read_vcfR(vcf,
-                                    parent1=parent1,
-                                    parent2=parent2,
-                                    f1=f1,
-                                    cross=crosstype, 
-                                    only_biallelic = F, 
-                                    output_info_rds = info_file_name)
+  vcfR.object <- read.vcfR(vcf, verbose = F) 
   
-  vcfR.object <- read.vcfR(vcf, verbose = F) # TODO: remove double reading
+  info_file_name <- tempfile()
+  if(recovering){
+    onemap.object <- onemap_read_vcfR(vcfR.object = vcfR.object,
+                                      parent1=parent1,
+                                      parent2=parent2,
+                                      f1=f1,
+                                      cross=crosstype, 
+                                      only_biallelic = F)
+    
+    MKS <- vcfR.object@fix[,3]
+    if (any(MKS == "." | is.na(MKS))) {
+      MKS <- paste0(vcfR.object@fix[,1],"_", vcfR.object@fix[,2])
+      # Add tag if is duplicated positions (split form of mnps)
+      for(i in 2:length(MKS)) {
+        if(MKS[i] == paste0(strsplit(MKS[i-1], "_")[[1]][1:2], collapse = "_")) {
+          z <- z + 1
+          MKS[i] <- paste0(MKS[i], "_",z)
+        } else {
+          z <- 0
+        }
+      }
+    }
+    
+    info <- data.frame(CHROM = vcfR.object@fix[,1], 
+                       POS = as.numeric(vcfR.object@fix[,2]), 
+                       ID = MKS, 
+                       REF = vcfR.object@fix[,4], 
+                       ALT = vcfR.object@fix[,5])
+    saveRDS(info, file = info_file_name)
+    
+  } else {
+    onemap.object <- onemap_read_vcfR(vcfR.object = vcfR.object,
+                                      parent1=parent1,
+                                      parent2=parent2,
+                                      f1=f1,
+                                      cross=crosstype, 
+                                      only_biallelic = F, 
+                                      output_info_rds = info_file_name)
+  }
+  
   
   if(is.null(depths)){
     depth_matrix <- extract_depth(vcfR.object=vcfR.object,
@@ -177,9 +210,9 @@ updog_genotype <- function(vcf=NULL,
   
   # Missing data                                                                                                 
   if(is(onemap.object, "f2")){
-    rm.mks <- which(psize ==0)
+    rm.mks <- which(psize ==0 | is.na(psize))
   }else{
-    rm.mks <- which(psize[,1] ==0 | psize[,2] ==0)
+    rm.mks <- which(psize[,1] ==0 | psize[,2] ==0 | is.na(psize[,2]) | is.na(psize[,1]) )
   }
   
   rm.mks1 <- vector()
@@ -249,8 +282,8 @@ updog_genotype <- function(vcf=NULL,
     P2 <- unlist(sapply(sapply(gene_est, "[", 8), "[", 1))
   }
   
-  temp1 <- lapply(gene_est, "[[", 9)
-  temp2 <- lapply(gene_est, "[[", 10)
+  temp1 <- lapply(gene_est, "[[", 10)
+  temp2 <- lapply(gene_est, "[[", 11)
   
   for(i in 1:n.mks){
     geno_matrix[i,] <- temp1[[i]]
@@ -341,6 +374,9 @@ updog_genotype <- function(vcf=NULL,
     segr.type.num[idx] <- 1
   }
   
+  P1 <- recode_parents(P1)
+  P2 <- recode_parents(P2)
+  
   conv_geno <-  t(conv_geno)
   conv_geno[which(is.na(conv_geno))] <- 0
   
@@ -365,15 +401,15 @@ updog_genotype <- function(vcf=NULL,
   onemap_updog$segr.type <- segr.type
   
   if(use_genotypes_probs){
-    onemap_updog.new <- create_probs(onemap.obj = onemap_updog,
+    onemap_updog.new <- create_probs(input.obj = onemap_updog,
                                      genotypes_probs = genotypes_probs,
                                      global_error = global_error)
   } else if(use_genotypes_errors){
-    onemap_updog.new <- create_probs(onemap.obj = onemap_updog,
+    onemap_updog.new <- create_probs(input.obj = onemap_updog,
                                      genotypes_errors = maxpostprob,
                                      global_error = global_error)
   } else if(!is.null(global_error)){
-    onemap_updog.new <- create_probs(onemap.obj = onemap_updog,
+    onemap_updog.new <- create_probs(input.obj = onemap_updog,
                                      global_error = global_error)
   }
   
@@ -387,7 +423,10 @@ updog_genotype <- function(vcf=NULL,
                       out_vcf = out_vcf, 
                       input_info_rds = info_file_name,
                       probs = genotypes_probs, 
-                      parent1 = parent1, parent2 = parent2)
+                      parent1.id = parent1, 
+                      parent2.id = parent2, 
+                      parent1.geno = P1, 
+                      parent2.geno = P2)
   }
   
   structure(onemap_updog.new)
@@ -463,4 +502,11 @@ plot_error_dist <- function(onemap.obj = NULL, mk.type = TRUE,
   
   p <- p +  xlab("error probability") + ylab("count") + labs(fill = "Marker type") + scale_x_continuous(limits = c(0, max(M$value)))
   return(p)
+}
+
+recode_parents <- function(x) {
+  x[which(x==1)] <- "0/1"
+  x[which(x==0)] <- "1/1"
+  x[which(x==2)] <- "0/0"
+  return(x)
 }

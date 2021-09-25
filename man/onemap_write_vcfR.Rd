@@ -8,8 +8,10 @@ onemap_write_vcfR(
   onemap.object,
   out_vcf,
   input_info_rds,
-  parent1 = NULL,
-  parent2 = NULL,
+  parent1.geno = NULL,
+  parent1.id = NULL,
+  parent2.geno = NULL,
+  parent2.id = NULL,
   probs,
   cores = 1
 )
@@ -22,9 +24,13 @@ It is important to notice that only onemap informative markers are kept.}
 
 \item{input_info_rds}{output file from onemap_read_vcfR to store alleles information}
 
-\item{parent1}{parent 1 identification}
+\item{parent1.geno}{parent 1 genotypes (vcf notation: 0/0, 0/1, 1/1, ./.)}
 
-\item{parent2}{parent 2 identification}
+\item{parent1.id}{parent 1 ID}
+
+\item{parent2.geno}{parent 2 genotypes (vcf notation: 0/0, 0/1, 1/1, ./.)}
+
+\item{parent2.id}{parent 2 ID}
 
 \item{probs}{genotyope probabilities}
 }

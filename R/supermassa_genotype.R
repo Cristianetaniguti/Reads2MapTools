@@ -26,6 +26,7 @@
 ##' 
 ##' @importFrom matrixStats logSumExp
 ##' @importFrom vcfR read.vcfR
+##' @import onemap
 ##' 
 ##' @export
 supermassa_genotype <- function(vcf=NULL,
@@ -45,17 +46,47 @@ supermassa_genotype <- function(vcf=NULL,
                                 rm_multiallelic = TRUE,
                                 info_file_name=NULL){
   
+  vcfR.object <- read.vcfR(vcf, verbose = F)
+  
   info_file_name <- tempfile() 
-  
-  onemap.object <- onemap_read_vcfR(vcf,
-                                    parent1=parent1,
-                                    parent2=parent2,
-                                    f1=f1,
-                                    cross=crosstype, 
-                                    only_biallelic = F, 
-                                    output_info_rds = info_file_name)
-  
-  vcfR.object <- read.vcfR(vcf, verbose = F) # TODO: remove double reading
+  if(recovering){
+    onemap.object <- onemap_read_vcfR(vcfR.object = vcfR.object,
+                                      parent1=parent1,
+                                      parent2=parent2,
+                                      f1=f1,
+                                      cross=crosstype, 
+                                      only_biallelic = F)
+    
+    MKS <- vcfR.object@fix[,3]
+    if (any(MKS == "." | is.na(MKS))) {
+      MKS <- paste0(vcfR.object@fix[,1],"_", vcfR.object@fix[,2])
+      # Add tag if is duplicated positions (split form of mnps)
+      for(i in 2:length(MKS)) {
+        if(MKS[i] == paste0(strsplit(MKS[i-1], "_")[[1]][1:2], collapse = "_")) {
+          z <- z + 1
+          MKS[i] <- paste0(MKS[i], "_",z)
+        } else {
+          z <- 0
+        }
+      }
+    }
+    
+    info <- data.frame(CHROM = vcfR.object@fix[,1], 
+                       POS = as.numeric(vcfR.object@fix[,2]), 
+                       ID = MKS, 
+                       REF = vcfR.object@fix[,4], 
+                       ALT = vcfR.object@fix[,5])
+    saveRDS(info, file = info_file_name)
+    
+  } else {
+    onemap.object <- onemap_read_vcfR(vcfR.object = vcfR.object,
+                                      parent1=parent1,
+                                      parent2=parent2,
+                                      f1=f1,
+                                      cross=crosstype, 
+                                      only_biallelic = F, 
+                                      output_info_rds = info_file_name)
+  }
   
   if(is.null(depths)){
     extracted_depth <- extract_depth(vcfR.object=vcfR.object,
@@ -148,6 +179,10 @@ supermassa_genotype <- function(vcf=NULL,
     extracted_depth$onemap.object <- onemap.object
   }
   
+  # NA replaced by 0 - not ideal - Bugfix!
+  for(i in 1:6)
+    extracted_depth[[i]][is.na(extracted_depth[[i]])] <- 0
+  
   prepared_depth <- depth_prepare(extracted_depth)
   obj.class <- class(extracted_depth$onemap.object)[2]
   
@@ -162,6 +197,12 @@ supermassa_genotype <- function(vcf=NULL,
   geno <- matrix(unlist(lapply(result, "[", 4)), ncol = extracted_depth$n.mks, byrow = FALSE)
   error <- lapply(result, "[[", 5)
   error <- as.matrix(do.call(rbind, error[!as.logical(rm.mk)]))
+  pgeno <- lapply(result, "[[", 6)
+  pgeno <- as.matrix(do.call(rbind, pgeno[!as.logical(rm.mk)]))
+  
+  # parents geno
+  p1 <- apply(pgeno[,1:2], 1, recode_parents)
+  p2 <- apply(pgeno[,3:4], 1, recode_parents)
   
   geno[which(is.na(geno))] <- 0
   error[which(is.na(error))] <- 1
@@ -221,15 +262,15 @@ supermassa_genotype <- function(vcf=NULL,
   rownames(maxpostprob) <- rownames(onemap_supermassa$geno)
   
   if(use_genotypes_probs){
-    onemap_supermassa.new <- create_probs(onemap.obj = onemap_supermassa,
+    onemap_supermassa.new <- create_probs(input.obj = onemap_supermassa,
                                           genotypes_probs = onemap_supermassa$error,
                                           global_error = global_error)
   } else if(use_genotypes_errors){
-    onemap_supermassa.new <- create_probs(onemap.obj = onemap_supermassa,
+    onemap_supermassa.new <- create_probs(input.obj = onemap_supermassa,
                                           genotypes_errors = 1- maxpostprob,
                                           global_error = global_error)
   } else if(!is.null(global_error)){
-    onemap_supermassa.new <- create_probs(onemap.obj = onemap_supermassa,
+    onemap_supermassa.new <- create_probs(input.obj = onemap_supermassa,
                                           global_error = global_error)
   }
   
@@ -243,7 +284,10 @@ supermassa_genotype <- function(vcf=NULL,
                       out_vcf = out_vcf, 
                       input_info_rds = info_file_name,
                       probs = onemap_supermassa$error, 
-                      parent1 = parent1, parent2 = parent2)
+                      parent1.geno = p1, 
+                      parent2.geno = p2,
+                      parent1.id = parent1,
+                      parent2.id = parent2)
   }
   
   return(onemap_supermassa.new)
@@ -284,12 +328,14 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL){
     geno_one <- prob_error <- rep(NA, n.ind)
     mk.type <- NA
     probs <- NA
+    pgeno <- NA
   }else if(all(supermassa_4parallel[[3]]==0)){
     # Marker with missing data in all progeny
     rm.mk <- 1 #index to markers to be removed
     geno_one <- prob_error <- rep(NA, n.ind)
     mk.type <- NA
     probs <- NA
+    pgeno <- NA
   } else {
     rm.mk <- 0
     write.table(supermassa_4parallel[[3]], file = paste0("odepth_temp", supermassa_4parallel[[1]],".txt"), quote = FALSE, col.names = FALSE)
@@ -465,7 +511,8 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL){
       }
     }
   }
-  return( list(mk= supermassa_4parallel[[1]],rm.mk, mk.type, geno_one, probs))
+  
+  return( list(mk= supermassa_4parallel[[1]],rm.mk, mk.type, geno_one, probs, pgeno))
 }
 
 ## function to parse the genotype probabilities
@@ -473,5 +520,17 @@ parse.geno<-function(x)
 {
   y<-strsplit(as.character(x), split="\\[|\\,|\\]")
   sapply(y, function(x) as.numeric(x[which.max(nchar(x))]))
+}
+
+recode_parents <- function(x) {
+  if(anyNA(x)) {
+    "./."
+  } else if(x[1] == 0 & x[2] == 2){
+    "1/1"
+  } else if(x[1] == 2 & x[2] == 0){
+    "0/0"
+  } else if(x[1] == 1 & x[2] == 1){
+    "0/1"
+  }
 }
 

@@ -15,7 +15,8 @@ polyRAD_genotype(
   use_genotypes_errors = TRUE,
   use_genotypes_probs = FALSE,
   rm_multiallelic = TRUE,
-  info_file_name = NULL
+  info_file_name = NULL,
+  recovering = FALSE
 )
 }
 \arguments{
