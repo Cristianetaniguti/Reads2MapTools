@@ -374,8 +374,9 @@ updog_genotype <- function(vcf=NULL,
     segr.type.num[idx] <- 1
   }
   
-  P1 <- recode_parents(P1)
-  P2 <- recode_parents(P2)
+  P1 <- recode_parents_up(P1)
+  P2 <- recode_parents_up(P2)
+  names(P1) <- names(P2) <- mks
   
   conv_geno <-  t(conv_geno)
   conv_geno[which(is.na(conv_geno))] <- 0
@@ -418,6 +419,15 @@ updog_genotype <- function(vcf=NULL,
       onemap_updog.new <- combine_onemap(onemap_updog.new, mult.obj)
   }
   
+  # AD matrix
+  ref <- cbind(pref, oref)
+  ref[is.na(ref)] <- "."
+  alt <- cbind(psize - pref, osize - oref)
+  alt[is.na(alt)] <- "."
+  ad_matrix <- matrix(paste0(ref, ",", alt), nrow = nrow(ref))
+  colnames(ad_matrix) <- colnames(ref)
+  rownames(ad_matrix) <- rownames(ref)
+  
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap_updog.new, 
                       out_vcf = out_vcf, 
@@ -426,7 +436,8 @@ updog_genotype <- function(vcf=NULL,
                       parent1.id = parent1, 
                       parent2.id = parent2, 
                       parent1.geno = P1, 
-                      parent2.geno = P2)
+                      parent2.geno = P2,
+                      ad_matrix = ad_matrix)
   }
   
   structure(onemap_updog.new)
@@ -504,7 +515,7 @@ plot_error_dist <- function(onemap.obj = NULL, mk.type = TRUE,
   return(p)
 }
 
-recode_parents <- function(x) {
+recode_parents_up <- function(x) {
   x[which(x==1)] <- "0/1"
   x[which(x==0)] <- "1/1"
   x[which(x==2)] <- "0/0"

@@ -13,7 +13,7 @@ onemap_write_vcfR(
   parent2.geno = NULL,
   parent2.id = NULL,
   probs,
-  cores = 1
+  ad_matrix = NULL
 )
 }
 \arguments{

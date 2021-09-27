@@ -201,8 +201,9 @@ supermassa_genotype <- function(vcf=NULL,
   pgeno <- as.matrix(do.call(rbind, pgeno[!as.logical(rm.mk)]))
   
   # parents geno
-  p1 <- apply(pgeno[,1:2], 1, recode_parents)
-  p2 <- apply(pgeno[,3:4], 1, recode_parents)
+  p1 <- apply(pgeno[,1:2], 1, recode_parents_sm)
+  p2 <- apply(pgeno[,3:4], 1, recode_parents_sm)
+  names(p1) <- names(p2) <- mks[!rm.mk]
   
   geno[which(is.na(geno))] <- 0
   error[which(is.na(error))] <- 1
@@ -279,6 +280,15 @@ supermassa_genotype <- function(vcf=NULL,
       onemap_supermassa.new <- combine_onemap(onemap_supermassa.new, mult.obj)
   }
   
+  # AD matrix
+  ref <- cbind(extracted_depth$pref, extracted_depth$oref)
+  ref[is.na(ref)] <- "."
+  alt <- cbind(extracted_depth$psize - extracted_depth$pref, extracted_depth$osize - extracted_depth$oref)
+  alt[is.na(alt)] <- "."
+  ad_matrix <- matrix(paste0(ref, ",", alt), nrow = nrow(ref))
+  colnames(ad_matrix) <- colnames(ref)
+  rownames(ad_matrix) <- rownames(ref)
+  
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap_supermassa.new, 
                       out_vcf = out_vcf, 
@@ -287,7 +297,8 @@ supermassa_genotype <- function(vcf=NULL,
                       parent1.geno = p1, 
                       parent2.geno = p2,
                       parent1.id = parent1,
-                      parent2.id = parent2)
+                      parent2.id = parent2,
+                      ad_matrix = ad_matrix)
   }
   
   return(onemap_supermassa.new)
@@ -522,7 +533,7 @@ parse.geno<-function(x)
   sapply(y, function(x) as.numeric(x[which.max(nchar(x))]))
 }
 
-recode_parents <- function(x) {
+recode_parents_sm <- function(x) {
   if(anyNA(x)) {
     "./."
   } else if(x[1] == 0 & x[2] == 2){

@@ -54,7 +54,7 @@ polyRAD_genotype <- function(vcf=NULL,
                              use_genotypes_probs = FALSE,
                              rm_multiallelic = TRUE,
                              info_file_name = NULL,
-                             recovering = FALSE){
+                             vcf.par = c("AD", "DPR")){
   
   vcfR.object <- read.vcfR(vcf, verbose = F)
   
@@ -145,55 +145,14 @@ polyRAD_genotype <- function(vcf=NULL,
   }
   
   parent1.geno <-t(mydata2$likelyGeno_donor)
-  
-  mks <- sapply(strsplit(rownames(parent1.geno), "_"), function(x) {
-    paste0(x[-c(length(x)-1, length(x))], collapse = "_")
-  })
-  mks <- gsub(":", "_", mks)
-  geno <- split(parent1.geno, mks)
-  P1 <- sapply(geno, function(x){
-    if(anyNA(x)){
-      return("./.")
-    }else if(all(x == c(1,1))){
-      return("0/1")
-    } else if(all(x == c(2,0))){
-      return("0/0")
-    } else if(all(x == c(0,2))){
-      return("1/1")
-    }
-  })
-  names(P1) <- unique(mks)
+  P1 <- recode_parents_pl(parent1.geno)
   
   parent2.geno <- t(mydata2$likelyGeno_recurrent)
-  mks <- sapply(strsplit(rownames(parent2.geno), "_"), function(x) {
-    paste0(x[-c(length(x)-1, length(x))], collapse = "_")
-  })
-  mks <- gsub(":", "_", mks)
-  geno <- split(parent2.geno, mks)
-  P2 <- sapply(geno, function(x){
-    if(anyNA(x)){
-      return("./.")
-    }else if(all(x == c(1,1))){
-      return("0/1")
-    } else if(all(x == c(2,0))){
-      return("0/0")
-    } else if(all(x == c(0,2))){
-      return("1/1")
-    }
-  })
-  names(P2) <- unique(mks)
-
+  P2 <- recode_parents_pl(parent2.geno)
+  
   unq.pos <- unique(pos)
   P1 <- P1[which(names(P1) %in% unq.pos)]
   P2 <- P2[which(names(P2) %in% unq.pos)]
-
-  if(!recovering){
-    pos.onemap <- colnames(onemap.obj$geno)
-    genotypes <- genotypes[which(pos%in%pos.onemap),]
-    pos <- pos[which(pos%in%pos.onemap)]
-    P1 <- P1[which(names(P1) %in% pos.onemap)]
-    P2 <- P2[which(names(P2) %in% pos.onemap)]
-  }
   
   # Remove parents
   if(crosstype=="f2 intercross"){
@@ -267,7 +226,24 @@ polyRAD_genotype <- function(vcf=NULL,
     if(length(multi) > 0)
       onemap.obj.new <- combine_onemap(onemap.obj.new, mult.obj)
   }
+
+  # AD matrix
+  depth_matrix <- extract_depth(vcfR.object=vcfR.object,
+                                onemap.object=onemap.obj,
+                                vcf.par=vcf.par,
+                                parent1=parent1,
+                                parent2=parent2,
+                                f1=f1,
+                                recovering=TRUE)
   
+  ref <- cbind(depth_matrix$pref, depth_matrix$oref)
+  ref[is.na(ref)] <- "."
+  alt <- cbind(depth_matrix$psize - depth_matrix$pref, depth_matrix$osize - depth_matrix$oref)
+  alt[is.na(alt)] <- "."
+  ad_matrix <- matrix(paste0(ref, ",", alt), nrow = nrow(ref))
+  colnames(ad_matrix) <- colnames(ref)
+  rownames(ad_matrix) <- rownames(ref)
+
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap.obj.new, 
                       out_vcf = out_vcf, 
@@ -276,8 +252,30 @@ polyRAD_genotype <- function(vcf=NULL,
                       parent1.id = parent1, 
                       parent2.id = parent2, 
                       parent1.geno = P1,
-                      parent2.geno = P2)
+                      parent2.geno = P2,
+                      ad_matrix = ad_matrix)
   }
   
   return(onemap.obj.new)
+}
+
+recode_parents_pl <- function(parent.geno){
+  mks <- sapply(strsplit(rownames(parent.geno), "_"), function(x) {
+    paste0(x[-c(length(x)-1, length(x))], collapse = "_")
+  })
+  mks <- gsub(":", "_", mks)
+  geno <- split(parent.geno, mks)
+  result <- sapply(geno, function(x){
+    if(anyNA(x)){
+      return("./.")
+    }else if(all(x == c(1,1))){
+      return("0/1")
+    } else if(all(x == c(2,0))){
+      return("0/0")
+    } else if(all(x == c(0,2))){
+      return("1/1")
+    }
+  })
+  names(result) <- unique(mks)
+  return(result)
 }

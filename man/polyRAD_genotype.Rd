@@ -16,7 +16,7 @@ polyRAD_genotype(
   use_genotypes_probs = FALSE,
   rm_multiallelic = TRUE,
   info_file_name = NULL,
-  recovering = FALSE
+  vcf.par = c("AD", "DPR")
 )
 }
 \arguments{

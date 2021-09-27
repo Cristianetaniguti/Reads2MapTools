@@ -29,7 +29,8 @@ onemap_write_vcfR <- function(onemap.object,
                               parent1.id = NULL,
                               parent2.geno = NULL,
                               parent2.id = NULL,
-                              probs, cores=1){
+                              probs, 
+                              ad_matrix = NULL){
   
   vcf.template <- read.vcfR(system.file("extdata/vcf_example_out.vcf.gz", package = "onemap"), verbose = F)
   
@@ -106,14 +107,29 @@ onemap_write_vcfR <- function(onemap.object,
   parents[which(parents == "1/1")] <- "1/1:99:99,99,0"
   parents[which(parents == "0/0")] <- "0/0:99:0,99,99"
   parents[which(parents == "0/1")] <- "0/1:99:99,0,99"
-  
+
   gt <- cbind(parents,gt)
   colnames(gt)[1:2] <- c(parent1.id, parent2.id)
-  gt <- cbind(FORMAT="GT:GQ:PL", gt)
+  
+  FORMAT <- "GT:GQ:PL"
+  
+  if(!is.null(ad_matrix)){
+    idx.c <- match(colnames(gt), colnames(ad_matrix))
+    idx.r <- match(rownames(gt), rownames(ad_matrix))
+    
+    ad_matrix <- ad_matrix[idx.r, idx.c]
+    gt1 <- matrix(paste0(gt, ":", ad_matrix), nrow = nrow(gt))
+    colnames(gt1) <- colnames(gt)
+    rownames(gt1) <- rownames(gt)
+    gt <- gt1
+    FORMAT <- "GT:GQ:PL:AD"
+  }
+  
+  gt <- cbind(FORMAT, gt)
   
   vcf.template@gt <- gt
   vcf.template@meta[2] <- "##source=OneMap"
-  vcf.template@meta <- vcf.template@meta[-c(4:5,8)]
+  vcf.template@meta <- vcf.template@meta[-c(5,8)]
   
   write.vcf(x = vcf.template, file = out_vcf)
 }
