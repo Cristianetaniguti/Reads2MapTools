@@ -25,10 +25,13 @@ phaseToOPGP_OM <- function(x){
     parents[which(parents == 'b')] <- 'B'
     
     parents = t(parents)
-    if(parents[1,which(apply(parents[1:2,],2,function(x) !(all(x=='A'))))[1]] == 'B')
-      parents[1:2,] <- parents[2:1,]
-    if(parents[3,which(apply(parents[3:4,],2,function(x) !(all(x=='A'))))[1]] == 'B')
-      parents[3:4,] <- parents[4:3,]
+    if (length(which(apply(parents[1:2,],2,function(x) !(all(x=='A'))))) > 0)
+      if(parents[1,which(apply(parents[1:2,],2,function(x) !(all(x=='A'))))[1]] == 'B')
+        parents[1:2,] <- parents[2:1,]
+    
+    if (length(which(apply(parents[3:4,],2,function(x) !(all(x=='A'))))) > 0)
+      if(parents[3,which(apply(parents[3:4,],2,function(x) !(all(x=='A'))))[1]] == 'B')
+        parents[3:4,] <- parents[4:3,]
     
     phases <- GUSMap:::parHapToOPGP(parents)
     # If there are multiallelic markers, it returns NULL
@@ -254,7 +257,7 @@ create_filters_report_simu <- function(onemap_obj, SNPCall, CountsFrom, GenoCall
                             seed, 
                             depth)
   
-  write_report(filters_tab, "filters_report")
+  write_report(filters_tab, paste0(SNPCall, "_",GenoCall, "_",CountsFrom, "_", seed,"_",depth,"_filters_report"))
   return(seq1)
 }
 

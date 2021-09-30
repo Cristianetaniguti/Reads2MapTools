@@ -196,7 +196,7 @@ polyRAD_genotype <- function(vcf=NULL,
   onemap.obj$segr.type.num <- mk.type.num[keep.mks]
   onemap.obj$CHROM <- info$CHROM[info$ID %in% colnames(onemap.obj$geno)]
   onemap.obj$POS <- info$POS[info$ID %in% colnames(onemap.obj$geno)]
-
+  
   # Avoiding geno 3 in D1.10 and D2.15
   idx <- which(onemap.obj$segr.type == "D1.10")
   onemap.obj$geno[,idx][onemap.obj$geno[,idx] == 3] <- 1
@@ -226,7 +226,7 @@ polyRAD_genotype <- function(vcf=NULL,
     if(length(multi) > 0)
       onemap.obj.new <- combine_onemap(onemap.obj.new, mult.obj)
   }
-
+  
   # AD matrix
   depth_matrix <- extract_depth(vcfR.object=vcfR.object,
                                 onemap.object=onemap.obj,
@@ -243,7 +243,7 @@ polyRAD_genotype <- function(vcf=NULL,
   ad_matrix <- matrix(paste0(ref, ",", alt), nrow = nrow(ref))
   colnames(ad_matrix) <- colnames(ref)
   rownames(ad_matrix) <- rownames(ref)
-
+  
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap.obj.new, 
                       out_vcf = out_vcf, 
@@ -279,3 +279,83 @@ recode_parents_pl <- function(parent.geno){
   names(result) <- unique(mks)
   return(result)
 }
+
+#' Uses polyRAD RADdata2VCF and  Export_MAPpoly to generate the VCF file
+#' The probabilities exported by Export_MAPpoly are includede in the 
+#' RADdata2VCF vcf file
+#' 
+#' @param vcf vcf file
+#' @param outfile output vcf file name
+#' @param parent1 parent 1 identification in vcfR object
+#' @param parent2 parent 2 identification in vcfR objetc
+#' 
+#' @import polyRAD
+#' @import vcfR
+#' @importFrom tidyr pivot_wider
+#' 
+#' @export
+polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
+  # Do the checks
+  poly.test <- VCF2RADdata(vcf, phaseSNPs = FALSE, 
+                           min.ind.with.reads = 0,
+                           min.ind.with.minor.allele = 0)
+  
+  poly.test <- SetDonorParent(poly.test, parent1)
+  poly.test <- SetRecurrentParent(poly.test, parent2)
+  
+  mydata2 <- PipelineMapping2Parents(poly.test, 
+                                     freqAllowedDeviation = 0.06,
+                                     useLinkage = FALSE)
+  
+  seed.uniq <- sample(100000, 1)
+  Export_MAPpoly(mydata2, paste0("temp.file.", seed.uniq)) 
+  genotypes <- read.table(paste0("temp.file.",seed.uniq), skip=12)
+  
+  file.remove(paste0("temp.file.",seed.uniq))
+  
+  RADdata2VCF(mydata2, file = "temp.vcf")
+  vcf_geno <- read.vcfR("temp.vcf")  
+  
+  # this will change according to the vcf - bug!! Need attention!
+  if(any(grepl(":", as.character(genotypes$V1)))){
+    temp_list <- strsplit(as.character(genotypes$V1), split = "_")
+    temp <- sapply(temp_list, function(x) paste0(x[-c(length(x)-1,length(x))], collapse = "_"))
+    pos <- gsub(":", "_", temp)
+  } else {
+    temp_list <- strsplit(as.character(genotypes$V1), split = "_")
+    pos <- sapply(temp_list, function(x) if(length(x) > 2) paste0(x[1:2], collapse = "_") else x[1])
+  }
+  
+  probs <- genotypes[,3:5]
+  probs_phr <- t(apply(probs, 1, function(x) -10*log(x, base = 10)))
+  probs_phr <- t(apply(probs_phr, 1, function(x) x-x[which.min(x)]))
+  probs_phr[which(probs_phr == "Inf" | probs_phr == "-Inf" | probs_phr > 99)] <- 99
+  probs_phr[is.na(probs_phr)] <- 0
+  gqs <- apply(probs_phr, 1, function(x) x[-c(which.min(x), which.max(x))])
+  probs_phr <- apply(probs_phr, 1, function(x) paste0(round(x,0), collapse = ","))
+  probs_phr <- paste0(probs_phr, ":",round(gqs,0))
+  
+  probs_ind <- cbind(ID = pos, ind = genotypes[,2], probs_phr)
+  probs_ind <- pivot_wider(as.data.frame(probs_ind), names_from = 2, values_from = probs_phr)
+  probs_ind <- cbind(probs_ind, parent1 = ".:.", parent2 = ".:.")
+  
+  # Parents are not in genotypes file
+  colnames(probs_ind)[c(dim(probs_ind)[2] - 1,dim(probs_ind)[2])] <- c(parent1, parent2)
+  
+  vcf_geno@fix[,3] <- paste0(vcf_geno@fix[,1], "_", vcf_geno@fix[,2])
+  
+  # Not all markers in the vcf are in genotypes
+  idx <- which(vcf_geno@fix[,3] %in% probs_ind$ID)
+  vcf_geno@fix <- vcf_geno@fix[idx,]
+  vcf_geno@gt <- vcf_geno@gt[idx,]
+  
+  idx <- match(colnames(vcf_geno@gt)[-1], colnames(probs_ind))
+  
+  vcf_geno@gt[,1] <- paste0(vcf_geno@gt[,1], ":PL:GQ")
+  
+  vcf_geno@gt[,2:dim(vcf_geno@gt)[2]] <- matrix(paste0(as.vector(vcf_geno@gt[,2:dim(vcf_geno@gt)[2]]), ":",
+                                                       as.vector(as.matrix(probs_ind[,idx]))), nrow = dim(probs_ind[,idx])[1])
+  
+  write.vcf(vcf_geno, file = outfile)
+}
+
