@@ -1,3 +1,7 @@
+
+#'  
+#' @import onemap
+#' 
 #' @export
 phaseToOPGP_OM <- function(x){
   ## code from here taken from the onemap function print.sequence()
@@ -181,18 +185,20 @@ create_maps_report_simu <- function(input.seq,
   return(list(map_df, map_info))
 }
 
+#' 
+#' @import onemap
+#' 
 #' @export
 create_filters_report_emp <- function(onemap_obj, SNPCall,CountsFrom, GenoCall, chromosome) {
   # onemap_prob <- filter_prob(onemap_obj, threshold = 0.8)
   onemap_mis <- filter_missing(onemap_obj, threshold = 0.25)
-  onemap_mis <- onemap::filter_missing(onemap_obj, threshold = 0.25)
-  bins <- onemap::find_bins(onemap_mis)
+  bins <- find_bins(onemap_mis)
   onemap_bins <- create_data_bins(onemap_mis, bins)
   twopts <- rf_2pts(input.obj = onemap_bins, rm_mks = T) # Do not keep redundant markers
   new_obj <- twopts$data.name
-  segr <- onemap::test_segregation(new_obj)
-  distorted <- onemap::select_segreg(segr, distorted = T)
-  no_distorted <- onemap::select_segreg(segr, distorted = F, numbers = T)
+  segr <- test_segregation(new_obj)
+  distorted <- select_segreg(segr, distorted = T)
+  no_distorted <- select_segreg(segr, distorted = F, numbers = T)
   chr <- which(new_obj$CHROM %in% chromosome)
   chr_no_dist <- chr[which(chr%in%no_distorted)]
   seq1 <- make_seq(twopts, chr_no_dist)
@@ -202,7 +208,10 @@ create_filters_report_emp <- function(onemap_obj, SNPCall,CountsFrom, GenoCall, 
     nongroup <- length(seq1$seq.num)
     lg1 <- seq1
   } else {
-    lg1 <- make_seq(lgs, as.numeric(names(which.max(table(lgs$groups[-which(lgs$groups== 0)])))))
+    if(length(which(lgs$groups== 0)) > 0)
+      lg1 <- make_seq(lgs, as.numeric(names(which.max(table(lgs$groups[-which(lgs$groups== 0)])))))
+    else 
+      lg1 <- make_seq(lgs, as.numeric(names(which.max(table(lgs$groups)))))
     nongroup <- length(seq1$seq.num) - length(lg1$seq.num)
   }
   filters_tab <- data.frame(CountsFrom,
@@ -219,6 +228,9 @@ create_filters_report_emp <- function(onemap_obj, SNPCall,CountsFrom, GenoCall, 
   return(lg1)
 }
 
+#' 
+#' @import onemap
+#' 
 #' @export
 create_filters_report_simu <- function(onemap_obj, SNPCall, CountsFrom, GenoCall, seed, depth) {
   # onemap_prob <- filter_prob(onemap_obj, threshold = 0.8)
@@ -246,6 +258,8 @@ create_filters_report_simu <- function(onemap_obj, SNPCall, CountsFrom, GenoCall
   return(seq1)
 }
 
+
+#' 
 #' @export
 create_gusmap_report_emp <- function(vcf_file,SNPCall, CountsFrom, GenoCall, parent1, parent2){
   ## Maps with gusmap
