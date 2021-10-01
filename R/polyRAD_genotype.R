@@ -280,6 +280,10 @@ recode_parents_pl <- function(parent.geno){
   return(result)
 }
 
+vcf <- "inst/ext/emp_subset.vcf"
+parent1 <- "PT_F"
+parent2 <- "PT_M"
+
 #' Uses polyRAD RADdata2VCF and  Export_MAPpoly to generate the VCF file
 #' The probabilities exported by Export_MAPpoly are includede in the 
 #' RADdata2VCF vcf file
@@ -356,6 +360,8 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   vcf_geno@gt[,2:dim(vcf_geno@gt)[2]] <- matrix(paste0(as.vector(vcf_geno@gt[,2:dim(vcf_geno@gt)[2]]), ":",
                                                        as.vector(as.matrix(probs_ind[,idx]))), nrow = dim(probs_ind[,idx])[1])
   
+  vcf_geno@meta[length(vcf_geno@meta) + 1] <- "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">"
+  vcf_geno@meta[length(vcf_geno@meta) + 1] <- "##FORMAT=<ID=PL,Number=R,Type=Float,Description=\"Normalized, Phred-scaled likelihoods for AA,AB,BB genotypes where A=ref and B=alt; not applicable it site is not biallelic\">"
   write.vcf(vcf_geno, file = outfile)
 }
 

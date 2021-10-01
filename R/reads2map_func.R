@@ -1,4 +1,3 @@
-
 #'  
 #' @import onemap
 #' 
@@ -95,18 +94,18 @@ create_map_report_emp <- function(input.seq, CountsFrom, SNPCall, GenoCall, max_
 
 #' @export
 create_maps_report_simu <- function(input.seq, 
-                               tot_mks,
-                               gab, 
-                               SNPCall, 
-                               GenoCall, 
-                               fake, 
-                               CountsFrom,
-                               real_phases, seed, depth, max_cores) {
+                                    tot_mks,
+                                    gab, 
+                                    SNPCall, 
+                                    GenoCall, 
+                                    fake, 
+                                    CountsFrom,
+                                    real_phases, seed, depth, max_cores) {
   
-  if(!fake){
+  if(fake == "without-false"){
     true_mks <- input.seq$seq.num[which(input.seq$data.name$POS[input.seq$seq.num] %in% tot_mks[,2])]
     seq_true <- make_seq(input.seq$twopt, true_mks) # only true markers are mapped
-  } else {
+  } else if(fake == "with-false"){
     real.mks <- input.seq$data.name$POS[input.seq$seq.num] %in% tot_mks[,2]
     real.mks[which(real.mks == T)] <- "true marker"
     real.mks[which(real.mks == F)] <- "false positive"
@@ -538,7 +537,7 @@ update_fake_info <- function(info_fake, simu_onemap_obj, ref_alt_alleles, simula
   
   info_correct[[2]]$real.type <- real.type
   info_correct[[2]]$real.phases <- real.phase
-  info_correct[[2]]$fake <- FALSE
+  info_correct[[2]]$fake <- "without-false"
   info_correct[[2]]$poscM <- poscM
   info_correct[[2]]$poscM.norm <- poscM.norm
   info_correct[[2]]$diff <- diff
