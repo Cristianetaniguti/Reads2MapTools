@@ -280,10 +280,6 @@ recode_parents_pl <- function(parent.geno){
   return(result)
 }
 
-vcf <- "inst/ext/emp_subset.vcf"
-parent1 <- "PT_F"
-parent2 <- "PT_M"
-
 #' Uses polyRAD RADdata2VCF and  Export_MAPpoly to generate the VCF file
 #' The probabilities exported by Export_MAPpoly are includede in the 
 #' RADdata2VCF vcf file

@@ -46,7 +46,7 @@ phaseToOPGP_OM <- function(x){
     phases[which(phases == 14 | phases == 15)] <- 24 
     
     ## Now from the parental haplotypes, determine the OPGPs
-    return(phases)
+    return(unlist(phases))
   }
 }
 
