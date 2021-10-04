@@ -135,7 +135,7 @@ create_maps_report_simu <- function(input.seq,
   types <- input.seq$data.name$segr.type[map_df[[1]]]
   pos <- input.seq$data.name$POS[map_df[[1]]]
   
-  if(!fake){
+  if(fake == "without-false"){
     real_type <- rep(NA, length(types))
     temp_type <- gab$segr.type[which(as.character(gab$POS) %in% input.seq$data.name$POS[map_df[[1]]])]
     real_type[which(input.seq$data.name$POS[map_df[[1]]] %in% as.character(gab$POS))] <- temp_type
@@ -404,7 +404,7 @@ create_gusmap_report_simu <- function(vcf_file, gab, SNPCall, GenoCall, fake, Co
   #mydata$computeMap(mapped = FALSE, inferOPGP = F) Error
   
   # Alternative way
-  if(!fake){
+  if(fake == "without-false"){
     keep.mks <- which(mydata$.__enclos_env__$private$pos %in% tot_mks$pos)
     pos <- mydata$.__enclos_env__$private$pos[keep.mks]
     depth_Ref_m <- mydata$.__enclos_env__$private$ref[[1]][,keep.mks]
@@ -480,7 +480,7 @@ create_gusmap_report_simu <- function(vcf_file, gab, SNPCall, GenoCall, fake, Co
   poscM.norm <- poscM-poscM[1]
   diff= sqrt((poscM.norm - dist.gus)^2)
   
-  if(!fake){
+  if(fake == "without-false"){
     map_info <- data.frame(seed,
                            depth,
                            "mk.name"= mydata$.__enclos_env__$private$SNP_Names[keep.mks][which(pos%in%rast.pos)],
