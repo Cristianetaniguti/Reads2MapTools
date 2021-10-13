@@ -207,7 +207,7 @@ run_pedsim <- function(chromosome = c("Chr1", "Chr2", "Chr3"),
   }
 
   # Run pedigreesim
-  system(paste("java -jar",system.file(package = "onemapUTILS", "PedigreeSim/PedigreeSim.jar"), name.parfile))
+  system(paste("java -jar",system.file(package = "Reads2MapTools", "PedigreeSim/PedigreeSim.jar"), name.parfile))
 
   if(rm.tempfiles){
     file.remove(name.parfile, paste0(name.out, "_alleledose.dat"),

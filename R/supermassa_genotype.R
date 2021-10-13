@@ -359,7 +359,7 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL){
     pdepth_temp <- paste0("pdepth_temp", supermassa_4parallel[[1]],".txt")
     out_file <- paste0("out_prob",supermassa_4parallel[[1]],".txt")
     
-    command_mass <- paste("python", paste0(system.file(package = "onemapUTILS"),"/python_scripts/","SuperMASSA.py"),
+    command_mass <- paste("python", paste0(system.file(package = "Reads2MapTools"),"/python_scripts/","SuperMASSA.py"),
                           "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range 2 ",
                           "--f1_parent_data", paste0(getwd(),"/",pdepth_temp), 
                           " --print_genotypes --naive_posterior_reporting_threshold 0",

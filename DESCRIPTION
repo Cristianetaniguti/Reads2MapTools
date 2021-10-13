@@ -1,6 +1,6 @@
-Package: onemapUTILS
+Package: Reads2MapTools
 Type: Package
-Title: onemapUTILS
+Title: Reads2MapTools
 Version: 0.3.3
 Author: Cristiane Taniguti
 Depends: R (>= 4.0)
@@ -9,7 +9,7 @@ Imports: doParallel,
          updog,
          polyRAD
 Maintainer: Cristiane Taniguti <chtaniguti@usp.br>
-Description: Run PedigreeSimm, SuperMASSA, polyRAD and updog software in R interface and return OneMap object
+Description: Utilities used by Reads2Map
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
