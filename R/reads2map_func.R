@@ -103,7 +103,7 @@ create_maps_report_simu <- function(input.seq,
                                     real_phases, seed, depth, max_cores) {
   
   if(fake == "without-false"){
-    true_mks <- input.seq$seq.num[which(input.seq$data.name$POS[input.seq$seq.num] %in% tot_mks[,2])]
+    true_mks <- input.seq$seq.num[which(input.seq$data.name$POS[input.seq$seq.num] %in% gab$POS)]
     seq_true <- make_seq(input.seq$twopt, true_mks) # only true markers are mapped
   } else if(fake == "with-false"){
     real.mks <- input.seq$data.name$POS[input.seq$seq.num] %in% tot_mks[,2]
@@ -137,7 +137,7 @@ create_maps_report_simu <- function(input.seq,
   
   if(fake == "without-false"){
     real_type <- rep(NA, length(types))
-    temp_type <- gab$segr.type[which(as.character(gab$POS) %in% input.seq$data.name$POS[map_df[[1]]])]
+    temp_type <- gab$segr.type[match(as.numeric(map_df$data.name$POS[map_df[[1]]]), as.numeric(gab$POS))]
     real_type[which(input.seq$data.name$POS[map_df[[1]]] %in% as.character(gab$POS))] <- temp_type
     real_type[which(is.na(real_type))] <- "non-informative"
     real_phase <- real_phases[which(real_phases[,1] %in% input.seq$data.name$POS[map_df[[1]]]),2]
