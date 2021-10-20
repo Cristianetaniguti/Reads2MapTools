@@ -524,9 +524,7 @@ create_gusmap_report_simu <- function(vcf_file, gab, SNPCall, GenoCall, fake, Co
 update_fake_info <- function(info_fake, simu_onemap_obj, ref_alt_alleles, simulated_phases){
   info_correct <- info_fake
   est.pos <- info_fake[[2]]$pos
-  real.type <- rep(NA, nrow(info_correct[[2]]))
-  temp.type <- simu_onemap_obj$segr.type[which(simu_onemap_obj$POS %in% est.pos)]
-  real.type[which(est.pos %in% as.character(simu_onemap_obj$POS))] <- temp.type
+  real.type <- simu_onemap_obj$segr.type[match(est.pos, simu_onemap_obj$POS)]
   real.type[which(is.na(real.type))] <- "non-informative"
   poscM <- ref_alt_alleles$pos.map[which(as.numeric(as.character(ref_alt_alleles$pos)) %in% as.numeric(as.character(est.pos)))]
   poscM.norm <- poscM-poscM[1]
