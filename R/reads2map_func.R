@@ -102,6 +102,14 @@ create_maps_report_simu <- function(input.seq,
                                     CountsFrom,
                                     real_phases, seed, depth, max_cores) {
   
+  # Check genome position
+  pos <- as.numeric(input.seq$data.name$POS[input.seq$seq.num])
+  sort.pos <- sort(pos)
+  if(all(pos != sort.pos)){
+    cat("The markers are not ordered by genome position")
+    input.seq <- make_seq(input.seq$twopt, input.seq$seq.num[order(as.numeric(input.seq$data.name$POS[input.seq$seq.num]))])
+  }
+  
   if(fake == "without-false"){
     true_mks <- input.seq$seq.num[which(input.seq$data.name$POS[input.seq$seq.num] %in% tot_mks[,2])]
     seq_true <- make_seq(input.seq$twopt, true_mks) # only true markers are mapped
