@@ -60,7 +60,7 @@ create_map_report_emp <- function(input.seq, CountsFrom, SNPCall, GenoCall, max_
   # Check genome position
   pos <- as.numeric(input.seq$data.name$POS[input.seq$seq.num])
   sort.pos <- sort(pos)
-  if(all(pos != sort.pos)){
+  if(any(pos != sort.pos)){
     cat("The markers are not ordered by genome position")
     input.seq <- make_seq(input.seq$twopt, input.seq$seq.num[order(as.numeric(input.seq$data.name$POS[input.seq$seq.num]))])
   } 
@@ -105,7 +105,7 @@ create_maps_report_simu <- function(input.seq,
   # Check genome position
   pos <- as.numeric(input.seq$data.name$POS[input.seq$seq.num])
   sort.pos <- sort(pos)
-  if(all(pos != sort.pos)){
+  if(any(pos != sort.pos)){
     cat("The markers are not ordered by genome position")
     input.seq <- make_seq(input.seq$twopt, input.seq$seq.num[order(as.numeric(input.seq$data.name$POS[input.seq$seq.num]))])
   }
