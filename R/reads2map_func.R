@@ -478,9 +478,7 @@ create_gusmap_report_simu <- function(vcf_file, gab, SNPCall, GenoCall, fake, Co
   config[which(config==2 | config==3)] <- "D1.10"
   config[which(config==4 | config==5)] <- "D2.15"
   
-  real_type <- rep(NA, length(config))
-  temp_type <- gab$segr.type[which(gab$POS %in% rast.pos)]
-  real_type[which(rast.pos %in% as.character(gab$POS))] <- temp_type
+  real_type <- gab$segr.type[match(as.numeric(rast.pos), as.numeric(gab$POS))]
   real_type[which(is.na(real_type))] <- "non-informative"
   poscM <- tot_mks$pos.map[which(as.numeric(as.character(tot_mks$pos)) %in% as.numeric(as.character(rast.pos)))]
   poscM.norm <- poscM-poscM[1]
