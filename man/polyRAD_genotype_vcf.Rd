@@ -3,7 +3,7 @@
 \name{polyRAD_genotype_vcf}
 \alias{polyRAD_genotype_vcf}
 \title{Uses polyRAD RADdata2VCF and  Export_MAPpoly to generate the VCF file
-The probabilities exported by Export_MAPpoly are includede in the 
+The probabilities exported by Export_MAPpoly are included in the 
 RADdata2VCF vcf file}
 \usage{
 polyRAD_genotype_vcf(vcf, parent1, parent2, outfile = "out.vcf.gz")
@@ -19,6 +19,6 @@ polyRAD_genotype_vcf(vcf, parent1, parent2, outfile = "out.vcf.gz")
 }
 \description{
 Uses polyRAD RADdata2VCF and  Export_MAPpoly to generate the VCF file
-The probabilities exported by Export_MAPpoly are includede in the 
+The probabilities exported by Export_MAPpoly are included in the 
 RADdata2VCF vcf file
 }
