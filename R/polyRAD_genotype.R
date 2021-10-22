@@ -281,7 +281,7 @@ recode_parents_pl <- function(parent.geno){
 }
 
 #' Uses polyRAD RADdata2VCF and  Export_MAPpoly to generate the VCF file
-#' The probabilities exported by Export_MAPpoly are includede in the 
+#' The probabilities exported by Export_MAPpoly are included in the 
 #' RADdata2VCF vcf file
 #' 
 #' @param vcf vcf file
