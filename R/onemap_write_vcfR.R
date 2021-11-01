@@ -93,8 +93,8 @@ onemap_write_vcfR <- function(onemap.object,
     temp[which.min(temp)]
   })
   
-  PL[is.na(PL)] <- "."
-  GQ[sapply(GQ, function(x) length(x) == 0)] <- "."
+  PL[is.na(probs)] <- "."
+  GQ[which(GQ==0)] <- "."
   
   PL <- apply(PL, 1, function(x) paste(x, collapse = ","))
   PL <- paste0(GQ, ":",PL)

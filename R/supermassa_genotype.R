@@ -13,7 +13,6 @@
 ##' @param crosstype string defining the cross type, by now it supports only 
 ##' outcross and f2 intercross
 ##' @param recovering logical defining if markers should be recovered from VCF
-##' @param mean_phred the mean phred score of the sequencer technology
 ##' @param cores number of threads 
 ##' @param depths list containing a matrix for ref and other for alt allele counts, samples ID in colum and markers ID in rows
 ##' @param global_error number from 0 to 1 defining the global error to be considered together 
@@ -37,7 +36,6 @@ supermassa_genotype <- function(vcf=NULL,
                                 crosstype=NULL,
                                 f1=NULL,
                                 recovering = FALSE,
-                                mean_phred = 20, 
                                 cores = 2,
                                 depths = NULL,
                                 global_error = NULL,

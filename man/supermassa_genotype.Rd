@@ -15,7 +15,6 @@ supermassa_genotype(
   crosstype = NULL,
   f1 = NULL,
   recovering = FALSE,
-  mean_phred = 20,
   cores = 2,
   depths = NULL,
   global_error = NULL,
@@ -43,8 +42,6 @@ outcross and f2 intercross}
 \item{f1}{f1 individual identification if f2 cross type}
 
 \item{recovering}{logical defining if markers should be recovered from VCF}
-
-\item{mean_phred}{the mean phred score of the sequencer technology}
 
 \item{cores}{number of threads}
 

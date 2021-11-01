@@ -13,7 +13,6 @@ updog_genotype(
   f1 = NULL,
   crosstype = NULL,
   recovering = FALSE,
-  mean_phred = 20,
   cores = 2,
   depths = NULL,
   global_error = NULL,
@@ -39,9 +38,7 @@ It is important to notice that only onemap informative markers are kept.}
 \item{crosstype}{string defining the cross type, by now it supports only 
 outcross and f2 intercross}
 
-\item{recovering}{logical defining if markers should be recovered from VCF}
-
-\item{mean_phred}{the mean phred score of the sequencer technology}
+\item{recovering}{logical defining if markers should be recovered from VCF (TRUE) or just keep the ones in the onemap object (FALSE).}
 
 \item{cores}{number of threads}
 

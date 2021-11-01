@@ -9,8 +9,7 @@
 #' @param out_vcf path and name of the vcf file to be outputed from the generated onemap object. 
 #' It is important to notice that only onemap informative markers are kept.
 #' @param f1 f1 individual identification if f2 cross type
-#' @param recovering logical defining if markers should be recovered from VCF
-#' @param mean_phred the mean phred score of the sequencer technology
+#' @param recovering logical defining if markers should be recovered from VCF (TRUE) or just keep the ones in the onemap object (FALSE).
 #' @param cores number of threads 
 #' @param crosstype string defining the cross type, by now it supports only 
 #' outcross and f2 intercross
@@ -51,7 +50,6 @@ updog_genotype <- function(vcf=NULL,
                            f1=NULL,
                            crosstype=NULL,
                            recovering = FALSE,
-                           mean_phred = 20, 
                            cores = 2,
                            depths = NULL,
                            global_error = NULL,
