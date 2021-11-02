@@ -337,17 +337,24 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   
   probs_ind <- cbind(ID = pos, ind = genotypes[,2], probs_phr)
   probs_ind <- pivot_wider(as.data.frame(probs_ind), names_from = 2, values_from = probs_phr)
-  probs_ind <- cbind(probs_ind, parent1 = ".:.", parent2 = ".:.")
   
-  # Parents are not in genotypes file
-  colnames(probs_ind)[c(dim(probs_ind)[2] - 1,dim(probs_ind)[2])] <- c(parent1, parent2)
+  # temporary
+  gt <- extract.gt(vcf_geno)
+  gt.p <- gt[,which(colnames(gt) %in% c(parent1, parent2))]
+  
+  gt.p[which(gt.p == "1/1")] <- "1/1:99:99,99,0"
+  gt.p[which(gt.p == "0/0")] <- "0/0:99:0,99,99"
+  gt.p[which(gt.p == "0/1")] <- "0/1:99:99,0,99"
   
   vcf_geno@fix[,3] <- paste0(vcf_geno@fix[,1], "_", vcf_geno@fix[,2])
   
   # Not all markers in the vcf are in genotypes
-  idx <- which(vcf_geno@fix[,3] %in% probs_ind$ID)
+  idx <- match(probs_ind$ID, vcf_geno@fix[,3])
   vcf_geno@fix <- vcf_geno@fix[idx,]
   vcf_geno@gt <- vcf_geno@gt[idx,]
+  gt.p <- gt.p[idx,]
+  
+  probs_ind <- cbind(probs_ind, gt.p)
   
   idx <- match(colnames(vcf_geno@gt)[-1], colnames(probs_ind))
   
