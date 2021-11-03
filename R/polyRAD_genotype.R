@@ -342,9 +342,9 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   gt <- extract.gt(vcf_geno)
   gt.p <- gt[,which(colnames(gt) %in% c(parent1, parent2))]
   
-  gt.p[which(gt.p == "1/1")] <- "1/1:99:99,99,0"
-  gt.p[which(gt.p == "0/0")] <- "0/0:99:0,99,99"
-  gt.p[which(gt.p == "0/1")] <- "0/1:99:99,0,99"
+  gt.p[which(gt.p == "1/1")] <- "99,99,0:99"
+  gt.p[which(gt.p == "0/0")] <- "0,99,99:99"
+  gt.p[which(gt.p == "0/1")] <- "99,0,99:99"
   
   vcf_geno@fix[,3] <- paste0(vcf_geno@fix[,1], "_", vcf_geno@fix[,2])
   
