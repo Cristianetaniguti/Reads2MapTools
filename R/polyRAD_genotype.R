@@ -327,13 +327,18 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   }
   
   probs <- genotypes[,3:5]
+  # Check if sum 1
+  probs <- t(apply(probs, 1, function(x) x/sum(x)))
   probs_phr <- t(apply(probs, 1, function(x) -10*log(x, base = 10)))
-  probs_phr <- t(apply(probs_phr, 1, function(x) x-x[which.min(x)]))
   probs_phr[which(probs_phr == "Inf" | probs_phr == "-Inf" | probs_phr > 99)] <- 99
-  probs_phr[is.na(probs_phr)] <- 0
+  
+  probs_phr <- t(apply(probs_phr, 1, function(x) x-x[which.min(x)])) # Difference
+  if(length(which(is.na(probs_phr))) > 0)
+    probs_phr[which(is.na(probs_phr))] <- 0
+  
   gqs <- apply(probs_phr, 1, function(x) x[-c(which.min(x), which.max(x))])
-  probs_phr <- apply(probs_phr, 1, function(x) paste0(round(x,0), collapse = ","))
-  probs_phr <- paste0(probs_phr, ":",round(gqs,0))
+  probs_phr <- apply(probs_phr, 1, function(x) paste0(floor(x), collapse = ","))
+  probs_phr <- paste0(probs_phr, ":",floor(gqs))
   
   probs_ind <- cbind(ID = pos, ind = genotypes[,2], probs_phr)
   probs_ind <- pivot_wider(as.data.frame(probs_ind), names_from = 2, values_from = probs_phr)

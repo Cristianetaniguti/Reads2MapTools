@@ -83,10 +83,11 @@ onemap_write_vcfR <- function(onemap.object,
   # PL
   PL <- probs
   PL <- -10*log(PL, base = 10)
-  PL[is.na(PL)] <- 0
-  PL <- t(apply(PL, 1, function(x) x-x[which.min(x)]))
   PL[which(PL == "Inf" | PL == "-Inf" | PL > 99)] <- 99
-  PL <- round(PL, 0)
+  if(length(which(is.na(PL))) > 0)
+    PL[which(is.na(PL))] <- 0
+  PL <- t(apply(PL, 1, function(x) x-x[which.min(x)]))
+  PL <- floor(PL)
   
   GQ <- apply(PL, 1, function(x) {
     temp <- x[-which.min(x)]

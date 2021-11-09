@@ -289,7 +289,7 @@ updog_genotype <- function(vcf=NULL,
   }
   
   postmat <- lapply(gene_est, "[", 6)
-  
+
   genotypes_probs <- postmat[[1]]$postmat
   for(i in 2:length(postmat)) # Order: mk 1 1 1 ind 1 2 3
     genotypes_probs <- rbind(genotypes_probs, postmat[[i]]$postmat)
@@ -297,6 +297,9 @@ updog_genotype <- function(vcf=NULL,
   # sort - order mk 1 2 3 ind 1 1 1 
   idx <- rep(1:dim(osize)[2], dim(osize)[1])
   genotypes_probs <- genotypes_probs[order(idx), ]
+  
+  # Check if sum 1
+  probs <- t(apply(genotypes_probs, 1, function(x) x/sum(x)))
   
   if(is(onemap.object, "outcross")){
     rm.mk <- which(P1==0 & P2 == 2 | P2 == 0 & P1 == 0 | P1==2 & P2 == 2 | P1==2 & P2 ==0)
@@ -412,7 +415,7 @@ updog_genotype <- function(vcf=NULL,
                                      global_error = global_error)
   }
   
-  if(!rm_multiallelic){
+  if(!rm_multiallelic){ ## BUGFIX! Fix probabilities if rm_multiallelics = FALSE
     if(length(multi.mks) > 0)
       onemap_updog.new <- combine_onemap(onemap_updog.new, mult.obj)
   }
@@ -425,6 +428,10 @@ updog_genotype <- function(vcf=NULL,
   ad_matrix <- matrix(paste0(ref, ",", alt), nrow = nrow(ref))
   colnames(ad_matrix) <- colnames(ref)
   rownames(ad_matrix) <- rownames(ref)
+  
+  # sort - order mk 1 1 1 ind 1 2 3 
+  idx <- rep(1:onemap_updog.new$n.mar, onemap_updog.new$n.ind)
+  genotypes_probs <- genotypes_probs[order(idx), ]
   
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap_updog.new, 

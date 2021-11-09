@@ -273,7 +273,7 @@ supermassa_genotype <- function(vcf=NULL,
                                           global_error = global_error)
   }
   
-  if(!rm_multiallelic){
+  if(!rm_multiallelic){ ## BUGFIX! Fix probabilities if rm_multiallelics = FALSE
     if(length(multi.mks) > 0)
       onemap_supermassa.new <- combine_onemap(onemap_supermassa.new, mult.obj)
   }
@@ -287,11 +287,15 @@ supermassa_genotype <- function(vcf=NULL,
   colnames(ad_matrix) <- colnames(ref)
   rownames(ad_matrix) <- rownames(ref)
   
+  # sort - order mk 1 1 1 ind 1 2 3 
+  idx <- rep(1:onemap_supermassa$n.mar, onemap_supermassa$n.ind)
+  genotypes_probs <- onemap_supermassa$error[order(idx), ]
+  
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap_supermassa.new, 
                       out_vcf = out_vcf, 
                       input_info_rds = info_file_name,
-                      probs = onemap_supermassa$error, 
+                      probs = genotypes_probs, 
                       parent1.geno = p1, 
                       parent2.geno = p2,
                       parent1.id = parent1,
