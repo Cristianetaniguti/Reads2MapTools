@@ -186,7 +186,7 @@ supermassa_genotype <- function(vcf=NULL,
   
   cl <- parallel::makeCluster(as.numeric(cores))
   registerDoParallel(cl)
-  clusterExport(cl, c("supermassa_parallel", "obj.class"))
+  clusterExport(cl, c("supermassa_parallel"))
   result <- parLapply(cl, prepared_depth, function(x) supermassa_parallel(supermassa_4parallel = x, class=obj.class))
   parallel::stopCluster(cl)
   mks <- unlist(lapply(result, "[", 1))
