@@ -186,7 +186,7 @@ supermassa_genotype <- function(vcf=NULL,
   
   cl <- parallel::makeCluster(as.numeric(cores))
   registerDoParallel(cl)
-  clusterExport(cl, c("supermassa_parallel"))
+  clusterExport(cl, c("supermassa_parallel", "obj.class"))
   result <- parLapply(cl, prepared_depth, function(x) supermassa_parallel(supermassa_4parallel = x, class=obj.class))
   parallel::stopCluster(cl)
   mks <- unlist(lapply(result, "[", 1))
@@ -212,8 +212,12 @@ supermassa_genotype <- function(vcf=NULL,
   n.mar <- length(rm.mk) - sum(rm.mk)
   
   onemap_supermassa <- extracted_depth$onemap.object
-  error[,2] <- factor(error[,2], levels = extracted_depth$inds)
-  error <- error[order(error[,2]),]
+  
+  #error[,2] <- factor(error[,2], levels = extracted_depth$inds)
+  
+  # set ord mk 1 2 3 ind 1 1 1
+  idx <- rep(1:length(unique(error[,2])), length(unique(error[,1])))
+  error <- error[order(idx),]
   onemap_supermassa$error <- as.matrix(apply(error[,3:5],2,as.numeric))
   colnames(onemap_supermassa$error) <- NULL
   

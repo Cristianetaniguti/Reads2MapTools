@@ -97,7 +97,7 @@ onemap_write_vcfR <- function(onemap.object,
   PL[is.na(probs)] <- "."
   GQ[which(GQ==0)] <- "."
   
-  PL <- apply(PL, 1, function(x) paste(x, collapse = ","))
+  PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ","))
   PL <- paste0(GQ, ":",PL)
   PL <- split(PL, rep(1:onemap.object$n.mar, each = onemap.object$n.ind))
   PL <- do.call(rbind, PL)
