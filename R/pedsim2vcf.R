@@ -146,12 +146,14 @@ pedsim2vcf <- function(inputfile=NULL,
                   gt_matrix[,1] == "1|0" & gt_matrix[,2] == "0|1" | 
                   gt_matrix[,1] == "0|1" & gt_matrix[,2] == "1|0")
     fd <- rep(1, nrow(gt_matrix))
-    fd[b3] <- 3
+    fd[b3] <- 3 # phased genotypes, the heterozygous have two categories
     
     set.seed(segregation.distortion.seed)
     mk.segr <- sample(1:nrow(gt_matrix), round(nrow(gt_matrix)*segregation.distortion.freq,0))
     mk.segr.names <- rownames(data)[mk.segr]
-    chi <- round(qchisq(p_values, fd[mk.segr], lower.tail = F),0) # number of genotypes that need to be changed
+    chi <- round(qchisq(p_values, fd[mk.segr], lower.tail = F),0) 
+    expected <- ncol(gt_matrix)/(fd[mk.segr]+1)
+    n.change <- sqrt(chi*expected) # number of genotypes that need to be changed
     
     # This change the genotypes line by line
     counts.mk <- counts.mk.change <- list()
@@ -173,7 +175,7 @@ pedsim2vcf <- function(inputfile=NULL,
         replace.genos <- c("0|0", "1|1")
       }
       # Sample individuals genotypes and to each genotype will be changed
-      mk_change[which(mk %in% genos.mk[which.geno])][sample(1:length(which(mk %in% genos.mk[which.geno])), chi[i])] <- sample(replace.genos, chi[i], replace = T)
+      mk_change[which(mk %in% genos.mk[which.geno])][sample(1:length(which(mk %in% genos.mk[which.geno])), n.change[i])] <- sample(replace.genos, n.change[i], replace = T)
       gt_matrix_change[mk.segr[i],3:ncol(gt_matrix)] <- mk_change
       counts.mk.change[[i]] <- table(mk_change)
     }

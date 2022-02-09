@@ -87,9 +87,9 @@ run_pedsim(chromosome = c("Chr1", "Chr2"), n.marker = c(40,32), tot.size.cm = c(
            n.ind = 200, mk.types = c("A1", "A2", "A3", "A4", "B1.5", "B2.6", "B3.7",
                                      "C.8", "D1.9", "D1.10", "D1.11", "D1.12", "D1.13",
                                      "D2.14", "D2.15", "D2.16", "D2.17", "D2.18"),
-                                     n.types = rep(4,18), pop = "F1", path.pedsim = "~/",
-           name.mapfile = "mapfile.map", name.founderfile="founderfile.gen", name.chromfile="sim.chrom", name.parfile="sim.par",
-           name.out="sim_out")
+                                     n.types = rep(4,18), pop = "F1", name.mapfile = "mapfile.map", 
+                                     name.founderfile="founderfile.gen", name.chromfile="sim.chrom", 
+                                     name.parfile="sim.par", name.out="sim_out")
 }
 
 }
