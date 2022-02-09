@@ -29,7 +29,11 @@ globalVariables(c("read.table", "rnbinom", "rbinom"))
 #' alleles fields in VCF, arguments reference.alleles or haplo.ref will be used to define which are the reference alleles
 #' @param counts If \code{TRUE} also simulates allele counts using approach defined in \code{method}
 #' @param p.mean.depth mean of the negative binomial distribution to generate depth counts for parents
-#'
+#' @param segregation.distortion.freq numeric between 0 and 1 to define the frequency of distorted markers. For example, if 0.3, the distortion will be applied to 30% of the markers
+#' @param segregation.distortion.mean numeric defining the mean p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation.
+#' @param segregation.distortion.sd numeric defining the standard deviation p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation.
+#' @param segregation.distortion.seed define seed to set the sample procedures during segregation distortion simulation
+#' 
 #' @return vcf file located in out.file defined path
 #'
 #' @seealso vcf file description
@@ -58,7 +62,7 @@ pedsim2vcf <- function(inputfile=NULL,
                        counts=TRUE,
                        mean.depth=20,
                        p.mean.depth = 20,
-                       chr.mb= 10,
+                       chr.mb = 10,
                        method = c("updog", "neg.binom"),
                        mean.phred=20,
                        bias=1,
@@ -69,36 +73,40 @@ pedsim2vcf <- function(inputfile=NULL,
                        phase = FALSE,
                        haplo.ref=NULL,
                        reference.alleles = NULL,
-                       use.as.alleles=FALSE){
-
+                       use.as.alleles=FALSE,
+                       segregation.distortion.freq = NULL,
+                       segregation.distortion.mean = NULL,
+                       segregation.distortion.sd = NULL,
+                       segregation.distortion.seed = 8181){
+  
   # Do the checks here
   if(is.null(inputfile) | is.null(map.file) | is.null(chrom.file))
     stop("You must define the PedigreeSim output files genotypes, map.file and chrom.file\n")
-
+  
   data <- read.table(paste(inputfile), stringsAsFactors = FALSE, header = TRUE)
-
+  
   # Infos
   rownames(data) <- data[,1]
   data <- data[,-1]
   n.ind <- dim(data)[2]/2
   n.mk <- dim(data)[1]
-
+  
   # Genotypes matrix
   idx <- rep(1:(n.ind), each = 2)
   gt_matrix <- gt_ref <- gt_alt <-  het_matrix <- matrix(rep(NA,n.ind*n.mk), nrow = n.mk, ncol = n.ind)
-
+  
   data <- as.matrix(data)
   keep.alleles <- data
-
+  
   if(any(data == "o"))
     stop("Null alleles are not supported.")
-
+  
   if(is.null(haplo.ref)){
     h.ref <- data[,1]
   } else{
     h.ref <- data[,which(colnames(data) == haplo.ref)]
   }
-
+  
   alt <- list()
   for(i in 1:n.mk){
     alt <- levels(factor(unlist(data[i,])))[which(levels(factor(unlist(data[i,]))) != h.ref[i])]
@@ -107,14 +115,14 @@ pedsim2vcf <- function(inputfile=NULL,
       data[i,][which(data[i,]== alt[w])] <- w
     }
   }
-
+  
   for(i in 1:(length(idx)/2)){
     gt_matrix[,i] <- paste0(data[,which(idx == i)[1]], "|", data[,which(idx == i)[2]])
     het_matrix[,i] <- data[,which(idx == i)[1]] != data[,which(idx == i)[2]]
     gt_ref[,i] <- data[,which(idx == i)[1]]
     gt_alt[,i] <- data[,which(idx == i)[2]]
   }
-
+  
   if(!phase){
     gt_matrix <- gsub("[|]", "/", gt_matrix)
     gt_matrix[which(gt_matrix == "1/0")] <- "0/1"
@@ -124,57 +132,107 @@ pedsim2vcf <- function(inputfile=NULL,
     gt_matrix[which(gt_matrix == "3/1")] <- "1/3"
     gt_matrix[which(gt_matrix == "3/2")] <- "2/3"
   }
-
+  
+  # Add segregation distortion
+  if(!(is.null(segregation.distortion.freq) & is.null(segregation.distortion.mean) & is.null(segregation.distortion.sd))){
+    p_values <- abs(rnorm(round(nrow(gt_matrix)*segregation.distortion.freq,0), 
+                          mean = segregation.distortion.mean, 
+                          sd = segregation.distortion.sd))
+    
+    # Three possible segregation pattern: only biallelic codominant markers (B3.7, D1.10 and D2.15)
+    # Freedom degrees B3.7 - 2; D1.10 - 1; D2.15 - 1
+    b3 <- which(gt_matrix[,1] == "0/1" & gt_matrix[,2] == "0/1" | 
+                  gt_matrix[,1] == "0|1" & gt_matrix[,2] == "0|1" | 
+                  gt_matrix[,1] == "1|0" & gt_matrix[,2] == "0|1" | 
+                  gt_matrix[,1] == "0|1" & gt_matrix[,2] == "1|0")
+    fd <- rep(1, nrow(gt_matrix))
+    fd[b3] <- 3
+    
+    set.seed(segregation.distortion.seed)
+    mk.segr <- sample(1:nrow(gt_matrix), round(nrow(gt_matrix)*segregation.distortion.freq,0))
+    mk.segr.names <- rownames(data)[mk.segr]
+    chi <- round(qchisq(p_values, fd[mk.segr], lower.tail = F),0) # number of genotypes that need to be changed
+    
+    # This change the genotypes line by line
+    counts.mk <- counts.mk.change <- list()
+    gt_matrix_change <- gt_matrix
+    for(i in 1:length(mk.segr)){
+      mk <- gt_matrix[mk.segr[i],3:ncol(gt_matrix)]
+      mk_change <- mk
+      
+      counts.mk[[i]] <- table(mk)
+      genos.mk <- unique(mk)
+      if(length(genos.mk) == 1) { # for, non-informative markers
+        replace.genos <- c("0|0", "1|1")
+        which.geno <- 1
+      } else if(length(genos.mk) == 2) {
+        which.geno <- sample(1:length(genos.mk), 1) # Sample genotype that will be changed
+        replace.genos <- genos.mk[-which.geno]
+      } else {
+        which.geno <- which(genos.mk == "0|1" | genos.mk == "1|0")
+        replace.genos <- c("0|0", "1|1")
+      }
+      # Sample individuals genotypes and to each genotype will be changed
+      mk_change[which(mk %in% genos.mk[which.geno])][sample(1:length(which(mk %in% genos.mk[which.geno])), chi[i])] <- sample(replace.genos, chi[i], replace = T)
+      gt_matrix_change[mk.segr[i],3:ncol(gt_matrix)] <- mk_change
+      counts.mk.change[[i]] <- table(mk_change)
+    }
+    
+    print(sum(gt_matrix_change != gt_matrix))
+    gt_matrix <- gt_matrix_change
+  }
+  
+  ## Simulate counts
   if(counts==TRUE){
     if(method=="neg.binom" ){
       # Negative binomial to estimate the depths (code adaptaded from Gusmap)
       depth <- prob.mat <- matrix(rep(NA, n.ind*n.mk),nrow=n.mk, ncol=n.ind)
-
+      
       prob.mat[which(gt_matrix == "0/0" | gt_matrix == "0|0")] <- 1
       prob.mat[het_matrix] <- 0.5
       prob.mat[is.na(prob.mat)] <- (10^(-mean.phred/10))
-
+      
       depth[which(!is.na(gt_matrix))] <- rnbinom(sum(!is.na(gt_matrix)),mu=mean.depth,size = disper.par)
-
+      
       # Avoiding missing
       idx <- which(depth==0)
-
+      
       while(length(idx) >0){
         depth[which(depth==0)] <- rnbinom(length(idx),mu=mean.depth,size=disper.par)
         idx <- which(depth==0)
       }
       ref_matrix <- matrix(rbinom(n.ind*n.mk, depth, prob.mat), nrow = n.mk)
-
-
+      
+      
       alt_matrix <- depth-ref_matrix
-
+      
       info <- paste0("DP=", apply(depth,1,sum))
-
+      
     } else if(method=="updog"){
-
+      
       up_matrix <- size_matrix <- ref_matrix <- matrix(rep(NA, length(gt_matrix)), nrow = dim(gt_matrix)[1])
-
+      
       idx <- which(het_matrix)
       up_matrix[idx] <- 1
       idx <- which(gt_matrix == "0/0" | gt_matrix == "0|0")
       up_matrix[idx] <- 0
       idx <- which(is.na(up_matrix))
       up_matrix[idx] <- 2
-
+      
       size_matrix <- matrix(rnbinom(length(gt_matrix),mu=mean.depth,size=disper.par), nrow = dim(gt_matrix)[1])
-
+      
       # Parents with other depth
       if(!is.null(p.mean.depth)){
         size_matrix[,1:2] <- rnbinom(length(size_matrix[,1:2]),mu=p.mean.depth,size=disper.par)
       }
-
+      
       mis <- which(size_matrix==0)
-
+      
       while(length(mis) > 0){
         size_matrix[mis] <- rnbinom(length(mis),mu=mean.depth,size=disper.par)
         mis <- which(size_matrix==0)
       }
-
+      
       for(i in 1:dim(up_matrix)[1]){
         ref_matrix[i,] <- rflexdog(sizevec = size_matrix[i,],
                                    geno=up_matrix[i,],
@@ -183,44 +241,44 @@ pedsim2vcf <- function(inputfile=NULL,
                                    bias=bias,
                                    od = od)
       }
-
+      
       alt_matrix <- size_matrix-ref_matrix
-
+      
       info <- apply(size_matrix, 1, sum)
     }
-
+    
     # VCF format field
     format <- rep("GT:AD", n.mk)
-
+    
     # Select the number of less frequent allele
     minor_matrix <- matrix(rep(NA, n.mk*n.ind), nrow = n.mk, ncol = n.ind)
     minor_matrix[which(ref_matrix >= alt_matrix)] <- alt_matrix[which(ref_matrix >= alt_matrix)]
     minor_matrix[which(ref_matrix < alt_matrix)] <- ref_matrix[which(ref_matrix < alt_matrix)]
-
+    
     # Probabilities calculation by binomial distribution
     tot_matrix <- ref_matrix + alt_matrix
     tot_matrix[which(tot_matrix==0)] <- NA
     het_matrix <- choose(tot_matrix, minor_matrix)*(0.5^minor_matrix)*(0.5^(tot_matrix-minor_matrix))
     homo_matrix <- choose(tot_matrix, minor_matrix)*((10^(-mean.phred/10))^minor_matrix)*((1-(10^((-mean.phred/10))))^(tot_matrix-minor_matrix))
     homo.oalt <- choose(tot_matrix, minor_matrix)*((10^(-mean.phred/10))^(tot_matrix-minor_matrix))*((1-(10^((-mean.phred/10))))^minor_matrix)
-
+    
     # Reviewed matrix
     check_matrix <- matrix(rep(NA, n.mk*n.ind), nrow = n.mk, ncol = n.ind)
-
+    
     # search in initial file the alleles from heterozygotes
     idx <- which(het_matrix >= homo_matrix | het_matrix == Inf)
     check_matrix[idx][which(gt_ref[idx] != gt_alt[idx])] <- gt_matrix[idx][which(gt_ref[idx] != gt_alt[idx])]
-
+    
     if(phase){
       check_matrix[idx][which(gt_ref[idx] == gt_alt[idx])] <- paste0("0|",sapply(strsplit(gt_matrix[idx][which(gt_ref[idx] == gt_alt[idx])], "[|]"), unique))
     } else {
       check_matrix[idx][which(gt_ref[idx] == gt_alt[idx])] <- paste0("0/",sapply(strsplit(gt_matrix[idx][which(gt_ref[idx] == gt_alt[idx])], "/"), unique))
     }
-
+    
     # search in initial file the alleles from homozigotes
     idx <- which(het_matrix < homo_matrix)
     check_matrix[idx][which(gt_ref[idx] == gt_alt[idx])] <- gt_matrix[idx][which(gt_ref[idx] == gt_alt[idx])]
-
+    
     if(phase){
       allele <- sapply(strsplit(gt_matrix[idx][which(gt_ref[idx] != gt_alt[idx])], "[|]"), "[", 1)
       check_matrix[idx][which(gt_ref[idx] != gt_alt[idx])] <- paste0(allele, "|", allele)
@@ -228,9 +286,9 @@ pedsim2vcf <- function(inputfile=NULL,
       allele <- sapply(strsplit(gt_matrix[idx][which(gt_ref[idx] != gt_alt[idx])], "/"), "[", 1)
       check_matrix[idx][which(gt_ref[idx] != gt_alt[idx])] <- paste0(allele, "/", allele)
     }
-
+    
     chang <- table((gt_matrix == check_matrix))
-
+    
     if(dim(chang) ==2){
       cat("Counts simulation changed", (chang[1]/(chang[1] + chang[2]))*100,
           "% of the given genotypes\n")
@@ -239,7 +297,7 @@ pedsim2vcf <- function(inputfile=NULL,
     } else{
       cat("None genotypes were changed")
     }
-
+    
     # Reference allele is the most frequent
     # for(i in 1:dim(check_matrix)[[1]]){
     #   z <- table(check_matrix[i,])
@@ -268,8 +326,8 @@ pedsim2vcf <- function(inputfile=NULL,
     #     }
     #   }
     # }
-
-
+    
+    
     ad_matrix <- matrix(NA, nrow = nrow(check_matrix), ncol = ncol(check_matrix))
     for(j in 1:dim(check_matrix)[1]){
       for(i in c(3,2,1)){
@@ -285,13 +343,13 @@ pedsim2vcf <- function(inputfile=NULL,
         ad_matrix_temp[idx[idx.sub],i+1] <- ref_matrix[j,idx[idx.sub]]
         idx.sub <- which(alt_matrix[j,idx] != 0)
         ad_matrix_temp[idx[idx.sub],i+1] <- alt_matrix[j,idx[idx.sub]]
-
+        
         idx <- which(gt_ref[j,] == i & gt_alt[j,] != i)
         idx.sub <- gt_ref[j,][idx] == i
         ad_matrix_temp[idx[idx.sub],i+1] <- ref_matrix[j,idx[idx.sub]]
         idx.sub <- gt_alt[j,][idx] == i
         ad_matrix_temp[idx[idx.sub],i+1] <- alt_matrix[j,idx[idx.sub]]
-
+        
         idx <- which(gt_ref[j,] != i & gt_alt[j,] == i)
         idx.sub <- gt_ref[j,][idx] == i
         ad_matrix_temp[idx[idx.sub],i+1] <- ref_matrix[j,idx[idx.sub]]
@@ -300,15 +358,15 @@ pedsim2vcf <- function(inputfile=NULL,
       }
       ad_matrix[j,] <- apply(ad_matrix_temp, 1, function(x) paste0(x, collapse = ","))
     }
-
+    
     vcf_format <- matrix(paste0(check_matrix, ":", ad_matrix), nrow = n.mk)
-
+    
   } else {
     vcf_format <- check_matrix <- gt_matrix
     format <- rep("GT", n.mk)
     info <- "."
   }
-
+  
   # Adding missing data
   miss <- sample(1:length(vcf_format), length(vcf_format)*(miss.perc/100))
   if(length(miss)>0){
@@ -316,17 +374,17 @@ pedsim2vcf <- function(inputfile=NULL,
       vcf_format[miss] <- "./.:0,0"
     } else{ vcf_format[miss] <- "./." }
   }
-
+  
   names1 <- lapply(strsplit(colnames(data)[-1], "_"), function (x) x[-length(x)])
   names1 <- unique(sapply(names1, function(x) if(length(x)>1) paste0(x[1], "_", x[2]) else x))
-
+  
   colnames(vcf_format) <- names1
-
+  
   if(is.null(chr)){
     chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
     chr <- chr.info$chromosome
   }
-
+  
   if(is.null(pos)){
     chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
     pos.info <- read.table(chrom.file, header = TRUE, stringsAsFactors = FALSE)
@@ -336,9 +394,9 @@ pedsim2vcf <- function(inputfile=NULL,
     chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
     pos <- round(chr.info$position,2)
   }
-
+  
   id <- rownames(data)
-
+  
   # Defining alleles in field REF and ALT
   ## REF
   if(use.as.alleles){
@@ -361,7 +419,7 @@ pedsim2vcf <- function(inputfile=NULL,
       if(length(done) != 0)
         ref_temp <- ref[-done][alleles]
       else ref_temp <- ref[alleles]
-
+      
       for(i in 1:length(alleles)){
         if(use.as.alleles){
           if(length(done) == 0)
@@ -387,22 +445,22 @@ pedsim2vcf <- function(inputfile=NULL,
       }
     }
   }
-
+  
   qual <- rep(".", n.mk)
   filter <- "PASS"
   # transformar em vetor
   vcf_file_mks <- data.frame("CHROM"=chr, "POS"=pos, "ID"= id,"REF"=ref, "ALT"=alt,
                              "QUAL"=qual, "FILTER"=filter,"INFO"=info,"FORMAT"=format,vcf_format, stringsAsFactors = FALSE)
-
+  
   vcf_vector <- apply(vcf_file_mks, 1, function(x) paste(x, collapse = "\t"))
   # Remove empty space before position
   vcf_vector <- gsub(pattern = " ", replacement = "",x = vcf_vector)
-
+  
   header1 <- paste0(colnames(vcf_file_mks), collapse = "\t")
   header <- paste0("##fileformat=VCFv4.1", "\n", "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">", '\n',
                    "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the reference and alternate alleles in the order listed\">",'\n',
                    "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">", "\n", "#", header1)
-
+  
   vcf <- c(header,vcf_vector)
   write.table(vcf, file = paste(out.file), quote = FALSE, row.names = FALSE,  col.names = FALSE)
 }

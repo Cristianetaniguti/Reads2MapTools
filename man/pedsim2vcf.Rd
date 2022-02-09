@@ -24,7 +24,11 @@ pedsim2vcf(
   phase = FALSE,
   haplo.ref = NULL,
   reference.alleles = NULL,
-  use.as.alleles = FALSE
+  use.as.alleles = FALSE,
+  segregation.distortion.freq = NULL,
+  segregation.distortion.mean = NULL,
+  segregation.distortion.sd = NULL,
+  segregation.distortion.seed = 8181
 )
 }
 \arguments{
@@ -68,6 +72,14 @@ pedsim2vcf(
 
 \item{use.as.alleles}{if \code{TRUE} uses codification in genotypes dat to define the reference and alternative
 alleles fields in VCF, arguments reference.alleles or haplo.ref will be used to define which are the reference alleles}
+
+\item{segregation.distortion.freq}{numeric between 0 and 1 to define the frequency of distorted markers. For example, if 0.3, the distortion will be applied to 30% of the markers}
+
+\item{segregation.distortion.mean}{numeric defining the mean p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation.}
+
+\item{segregation.distortion.sd}{numeric defining the standard deviation p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation.}
+
+\item{segregation.distortion.seed}{define seed to set the sample procedures during segregation distortion simulation}
 }
 \value{
 vcf file located in out.file defined path
