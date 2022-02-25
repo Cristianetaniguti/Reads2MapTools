@@ -180,7 +180,6 @@ pedsim2vcf <- function(inputfile=NULL,
       counts.mk.change[[i]] <- table(mk_change)
     }
     
-    print(sum(gt_matrix_change != gt_matrix))
     gt_matrix <- gt_matrix_change
   }
   
