@@ -9,7 +9,9 @@
 #' @import vcfR
 #' 
 #' @export
-filter_multi_vcf <- function(vcf, P1, P2, max.missing = NULL, vcf.out = "filtered.vcf.gz"){
+filter_multi_vcf <- function(vcf.file, P1, P2, max.missing = NULL, vcf.out = "filtered.vcf.gz"){
+  vcf <- read.vcfR(vcf.file)
+
   gt <- extract.gt(vcf)
   
   filt.gt <- filter_multi(gt, P1, P2)
