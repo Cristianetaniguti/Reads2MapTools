@@ -13,13 +13,18 @@ filter_multi_vcf <- function(vcf.file, P1, P2, max.missing = NULL, vcf.out = "fi
   vcf <- read.vcfR(vcf.file)
 
   gt <- extract.gt(vcf)
+  gq <- extract.gt(vcf, element = "GQ")
   
   filt.gt <- filter_geno_multi(gt, P1, P2)
   up.fix <- get_alternatives(vcf@fix, gt, P1, P2)
   
+  filt.gt[is.na(filt.gt)] <- "./."
+  format <- matrix(paste0(filt.gt, ":", gq), nrow = nrow(filt.gt))
+  
+  colnames(format) <- colnames(filt.gt)
   vcf.new <- vcf
   vcf.new@fix <- up.fix
-  vcf.new@gt <- cbind(FORMAT="GT", filt.gt)
+  vcf.new@gt <- cbind(FORMAT="GT:GQ", format)
   
   if(!is.null(max.missing)){
     mis <- apply(vcf.new@gt, 1, function(x) sum(is.na(x))/length(x))
