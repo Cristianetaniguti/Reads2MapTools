@@ -16,7 +16,7 @@ filter_multi_vcf <- function(vcf.file, P1, P2, max.missing = NULL, vcf.out = "fi
   gq <- extract.gt(vcf, element = "GQ")
   
   filt.gt <- filter_geno_multi(gt, P1, P2)
-  up.fix <- get_alternatives(vcf@fix, gt, P1, P2)
+  up.fix <- get_alternatives(fix = vcf@fix, gt, P1, P2)
   
   filt.gt[is.na(filt.gt)] <- "./."
   format <- matrix(paste0(filt.gt, ":", gq), nrow = nrow(filt.gt))
@@ -33,6 +33,7 @@ filter_multi_vcf <- function(vcf.file, P1, P2, max.missing = NULL, vcf.out = "fi
     vcf.new@gt <- vcf.new@gt[-idx,]
     vcf.new@fix <- vcf.new@fix[-idx,]
   }
+  
   write.vcf(vcf.new, file = vcf.out)
 }
 
@@ -93,22 +94,23 @@ filter_geno_multi <- function(gt.multi, P1, P2){
 #' @param P2 character with other parent ID
 #' 
 get_alternatives <- function(fix, gt, P1, P2){
-  p <- gt[,which(colnames(gt) %in% c(P1, P2))]
+  p <- gt[,which(colnames(gt) %in% c(P1, P2))] 
   p <- paste0(p[,1],"/",p[2])
   p <- strsplit(p, "/")
   p <- lapply(p, unique)
-  p <- lapply(p, function(x) if(length(which(x=="NA" | x == ".")) > 0) x[-which(x=="NA" | x == ".")] else x)
-  p <- lapply(p, function(x) sort(as.numeric(x) + 1))
+  p <- lapply(p, function(x) if(length(which(x=="NA" | x == ".")) > 0) as.numeric(x[-which(x=="NA" | x == ".")]) else as.numeric(x))
+  p <- lapply(p, function(x) if(length(x) == 1)  c(x, x+1) else x)
+  p <- lapply(p, function(x) sort(x + 1))
   
   alleles <- paste0(fix[,4], ",", fix[,5])
   alleles <- strsplit(alleles, ",")
   
-  alleles.sele <- mapply(function(x, y) {
+  alleles.sele <- Map(function(x, y) {
     y[x]
   }, p, alleles)
   
   # Change reference allele
-  fix[,4] <- sapply(alleles.sele, "[", 1)
+  fix[,4] <- sapply(alleles.sele, "[[", 1)
   
   # Change alternatives alleles
   fix[,5] <- sapply(alleles.sele, function(x) paste0(x[-1], collapse = ","))
