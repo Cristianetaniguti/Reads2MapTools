@@ -41,39 +41,65 @@ create_maps_report_simu <- function(input.seq,
     map_df <- map_avoid_unlinked(input.seq = seq_true, size = batch_size, 
                                  phase_cores = max_cores, overlap = 30)
     
-  } else {
+  } else if(length(seq_true$seq.num) > 2) {
     map_df <- map_avoid_unlinked(seq_true)
+  } else {
+    map_df <- NA
   }
   
-  phases <- phaseToOPGP_OM(x = map_df)
-  types <- input.seq$data.name$segr.type[map_df[[1]]]
-  pos <- input.seq$data.name$POS[map_df[[1]]]
+  if(!is.na(map_df)){
+    phases <- phaseToOPGP_OM(x = map_df)
+    types <- input.seq$data.name$segr.type[map_df[[1]]]
+    pos <- input.seq$data.name$POS[map_df[[1]]]
+  } else {
+    phases <- types <- pos <- NA
+  }
   
   if(fake == "without-false"){
-    real_type <- gab$segr.type[match(as.numeric(map_df$data.name$POS[map_df[[1]]]), as.numeric(gab$POS))]
-    real_type[which(is.na(real_type))] <- "non-informative"
-    real_phase <- real_phases[which(real_phases[,1] %in% input.seq$data.name$POS[map_df[[1]]]),2]
-    poscM <- tot_mks$pos.map[which(as.numeric(as.character(tot_mks$pos)) %in% as.numeric(as.character(pos)))]
-    poscM.norm <- c(0,cumsum(diff(poscM)))
-    diff= sqrt((poscM.norm - c(0,cumsum(haldane(map_df$seq.rf))))^2)
-    
-    map_info <- data.frame(seed,
-                           depth,
-                           "mk.name"= colnames(input.seq$data.name$geno)[map_df[[1]]],
-                           "pos" = input.seq$data.name$POS[map_df[[1]]],
-                           "rf" = c(0,cumsum(haldane(map_df[[3]]))),
-                           "type"= types,
-                           "real.type" = real_type,
-                           "est.phases"= unlist(phases),
-                           "real.phases"= real_phase,
-                           "real.mks" = "true marker",
-                           "SNPCall" = SNPCall,
-                           "GenoCall" = GenoCall,
-                           "CountsFrom" = CountsFrom,
-                           "fake" = "without-false",
-                           "poscM" = poscM,
-                           "poscM.norm" = poscM.norm,
-                           "diff" = diff)
+    if(!is.na(map_df)){
+      real_type <- gab$segr.type[match(as.numeric(map_df$data.name$POS[map_df[[1]]]), as.numeric(gab$POS))]
+      real_type[which(is.na(real_type))] <- "non-informative"
+      real_phase <- real_phases[which(real_phases[,1] %in% input.seq$data.name$POS[map_df[[1]]]),2]
+      poscM <- tot_mks$pos.map[which(as.numeric(as.character(tot_mks$pos)) %in% as.numeric(as.character(pos)))]
+      poscM.norm <- c(0,cumsum(diff(poscM)))
+      diff= sqrt((poscM.norm - c(0,cumsum(haldane(map_df$seq.rf))))^2)
+      
+      map_info <- data.frame(seed,
+                             depth,
+                             "mk.name"= colnames(input.seq$data.name$geno)[map_df[[1]]],
+                             "pos" = input.seq$data.name$POS[map_df[[1]]],
+                             "rf" = c(0,cumsum(haldane(map_df[[3]]))),
+                             "type"= types,
+                             "real.type" = real_type,
+                             "est.phases"= unlist(phases),
+                             "real.phases"= real_phase,
+                             "real.mks" = "true marker",
+                             "SNPCall" = SNPCall,
+                             "GenoCall" = GenoCall,
+                             "CountsFrom" = CountsFrom,
+                             "fake" = "without-false",
+                             "poscM" = poscM,
+                             "poscM.norm" = poscM.norm,
+                             "diff" = diff)
+    } else {
+      map_info <- data.frame(seed,
+                             depth,
+                             "mk.name"= NA,
+                             "pos" = NA,
+                             "rf" = NA,
+                             "type"= NA,
+                             "real.type" = NA,
+                             "est.phases"= NA,
+                             "real.phases"= NA,
+                             "real.mks" = NA,
+                             "SNPCall" = NA,
+                             "GenoCall" = NA,
+                             "CountsFrom" = NA,
+                             "fake" = "without-false",
+                             "poscM" = NA,
+                             "poscM.norm" = NA,
+                             "diff" = NA)
+    }
   } else { # Including fake markers is not possible to do the comparisions
     # The fake markers can also be multiallelic markers
     real.mks <- real.mks[input.seq$seq.num %in% map_df$seq.num]
