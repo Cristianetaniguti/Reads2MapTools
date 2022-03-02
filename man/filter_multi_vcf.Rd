@@ -4,11 +4,15 @@
 \alias{filter_multi_vcf}
 \title{Filter vcf file keeping only alleles found in parents haplotypes}
 \usage{
-filter_multi_vcf(vcf, P1, P2, max.missing = NULL, vcf.out = "filtered.vcf.gz")
+filter_multi_vcf(
+  vcf.file,
+  P1,
+  P2,
+  max.missing = NULL,
+  vcf.out = "filtered.vcf.gz"
+)
 }
 \arguments{
-\item{vcf}{path to vcf file}
-
 \item{P1}{character with one of the parents ID}
 
 \item{P2}{character with other parent ID}
@@ -16,6 +20,8 @@ filter_multi_vcf(vcf, P1, P2, max.missing = NULL, vcf.out = "filtered.vcf.gz")
 \item{max.missing}{maximum fraction of missing data allowed by marker}
 
 \item{vcf.out}{character defining output file name}
+
+\item{vcf}{path to vcf file}
 }
 \description{
 Filter vcf file keeping only alleles found in parents haplotypes
