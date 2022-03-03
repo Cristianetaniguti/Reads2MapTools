@@ -5,34 +5,41 @@
 #' @param P2 character with other parent ID
 #' @param max.missing maximum fraction of missing data allowed by marker
 #' @param vcf.out character defining output file name
+#' @param ploidy integer defining the samples ploidy
 #' 
 #' @import vcfR
 #' 
 #' @export
-filter_multi_vcf <- function(vcf.file, P1, P2, max.missing = NULL, vcf.out = "filtered.vcf.gz"){
+filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, vcf.out = "filtered.vcf.gz"){
   vcf <- read.vcfR(vcf.file)
-
+  
   gt <- extract.gt(vcf)
   gq <- extract.gt(vcf, element = "GQ")
   
-  filt.gt <- filter_geno_multi(gt, P1, P2)
-  up.fix <- get_alternatives(fix = vcf@fix, gt, P1, P2)
+  filt.gt <- filter_geno_multi(gt.multi = gt, P1, P2)
+  fix.up <- vcf@fix
+  idx <- match(rownames(filt.gt), paste0(fix.up[,1],"_",fix.up[,2]))
+  fix.up <- fix.up[idx,]
+  gq <- gq[idx,]
+  up.fix <- get_alternatives(fix = fix.up, filt.gt = filt.gt, P1, P2)
   
-  filt.gt[is.na(filt.gt)] <- "./."
+  if(!is.null(max.missing)){
+    mis <- apply(filt.gt, 1, function(x) sum(is.na(x))/length(x))
+    idx <- which(mis > max.missing)
+    
+    filt.gt <- filt.gt[-idx,]
+    gq<- gq[-idx,]
+    up.fix <- up.fix[-idx,]
+  }
+  
+  ploidy <- 4
+  filt.gt[is.na(filt.gt)] <- paste0(rep(".", ploidy), collapse = "/")
   format <- matrix(paste0(filt.gt, ":", gq), nrow = nrow(filt.gt))
   
   colnames(format) <- colnames(filt.gt)
   vcf.new <- vcf
   vcf.new@fix <- up.fix
   vcf.new@gt <- cbind(FORMAT="GT:GQ", format)
-  
-  if(!is.null(max.missing)){
-    mis <- apply(vcf.new@gt, 1, function(x) sum(is.na(x))/length(x))
-    idx <- which(mis > 0.25)
-    
-    vcf.new@gt <- vcf.new@gt[-idx,]
-    vcf.new@fix <- vcf.new@fix[-idx,]
-  }
   
   write.vcf(vcf.new, file = vcf.out)
 }
@@ -47,7 +54,20 @@ filter_multi_vcf <- function(vcf.file, P1, P2, max.missing = NULL, vcf.out = "fi
 filter_geno_multi <- function(gt.multi, P1, P2){
   parents.id <- which(colnames(gt.multi) %in% c(P1, P2))
   
+  diff.geno <- apply(gt.multi, 1, function(x) length(unique(x)))
+  gt.multi <- gt.multi[-which(diff.geno == 1),]
+  
   mk.split <- apply(gt.multi, 1, function(x) strsplit(x, "/"))
+  
+  # Filter non-informative
+  parents1 <- lapply(mk.split, "[[", parents.id[1])
+  parents2 <- lapply(mk.split, "[[", parents.id[2])
+  parents1 <- lapply(parents1, function(x) length(unique(x)))
+  parents2 <- lapply(parents2, function(x) length(unique(x)))
+  parents1 <- do.call(rbind, parents1)
+  parents2 <- do.call(rbind, parents2)
+  rm.mk <- which(parents1 == 1 & parents2 == 1)
+  mk.split <- mk.split[-rm.mk]
   
   mk.filt <- lapply(mk.split, function(y) {
     
@@ -93,9 +113,9 @@ filter_geno_multi <- function(gt.multi, P1, P2){
 #' @param P1 character with one of the parents ID
 #' @param P2 character with other parent ID
 #' 
-get_alternatives <- function(fix, gt, P1, P2){
-  p <- gt[,which(colnames(gt) %in% c(P1, P2))] 
-  p <- paste0(p[,1],"/",p[2])
+get_alternatives <- function(fix, filt.gt, P1, P2){
+  p <- filt.gt[,which(colnames(filt.gt) %in% c(P1, P2))] 
+  p <- paste0(p[,1],"/",p[,2])
   p <- strsplit(p, "/")
   p <- lapply(p, unique)
   p <- lapply(p, function(x) if(length(which(x=="NA" | x == ".")) > 0) as.numeric(x[-which(x=="NA" | x == ".")]) else as.numeric(x))
@@ -116,3 +136,4 @@ get_alternatives <- function(fix, gt, P1, P2){
   fix[,5] <- sapply(alleles.sele, function(x) paste0(x[-1], collapse = ","))
   return(fix)
 }
+

@@ -5,16 +5,16 @@
 \title{Replace the reference and alternative alleles in fix to 
 keep only the ones found in the parents}
 \usage{
-get_alternatives(fix, gt, P1, P2)
+get_alternatives(fix, filt.gt, P1, P2)
 }
 \arguments{
 \item{fix}{fix part of vcfR object}
 
-\item{gt}{genotypes matrix (markers x individuals) with multiallelic markers}
-
 \item{P1}{character with one of the parents ID}
 
 \item{P2}{character with other parent ID}
+
+\item{gt}{genotypes matrix (markers x individuals) with multiallelic markers}
 }
 \description{
 Replace the reference and alternative alleles in fix to 

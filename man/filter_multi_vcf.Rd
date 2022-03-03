@@ -8,6 +8,7 @@ filter_multi_vcf(
   vcf.file,
   P1,
   P2,
+  ploidy,
   max.missing = NULL,
   vcf.out = "filtered.vcf.gz"
 )
@@ -16,6 +17,8 @@ filter_multi_vcf(
 \item{P1}{character with one of the parents ID}
 
 \item{P2}{character with other parent ID}
+
+\item{ploidy}{integer defining the samples ploidy}
 
 \item{max.missing}{maximum fraction of missing data allowed by marker}
 
