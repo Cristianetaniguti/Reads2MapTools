@@ -29,10 +29,14 @@ globalVariables(c("read.table", "rnbinom", "rbinom"))
 #' alleles fields in VCF, arguments reference.alleles or haplo.ref will be used to define which are the reference alleles
 #' @param counts If \code{TRUE} also simulates allele counts using approach defined in \code{method}
 #' @param p.mean.depth mean of the negative binomial distribution to generate depth counts for parents
-#' @param segregation.distortion.freq numeric between 0 and 1 to define the frequency of distorted markers. For example, if 0.3, the distortion will be applied to 30% of the markers
-#' @param segregation.distortion.mean numeric defining the mean p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation.
-#' @param segregation.distortion.sd numeric defining the standard deviation p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation.
-#' @param segregation.distortion.seed define seed to set the sample procedures during segregation distortion simulation
+#' @param segregation.distortion.freq numeric between 0 and 1 to define the frequency of distorted markers. For example, if 0.3, the distortion will be applied to 30% of the markers. This does not consider linkage (see run_pedsim).
+#' @param segregation.distortion.mean numeric defining the mean p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation. This does not consider linkage (see run_pedsim).
+#' @param segregation.distortion.sd numeric defining the standard deviation p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation. This does not consider linkage (see run_pedsim).
+#' @param segregation.distortion.seed define seed to set the sample procedures during segregation distortion simulation. This does not consider linkage (see run_pedsim).
+#' @param n_selected_loci number of selected loci
+#' @param selection_str_mean selection mean intensity 
+#' @param selection_str_var selection intensity variance
+#' @param pop.size population size
 #' 
 #' @return vcf file located in out.file defined path
 #'
@@ -77,7 +81,12 @@ pedsim2vcf <- function(inputfile=NULL,
                        segregation.distortion.freq = NULL,
                        segregation.distortion.mean = NULL,
                        segregation.distortion.sd = NULL,
-                       segregation.distortion.seed = 8181){
+                       segregation.distortion.seed = 8181,
+                       n_selected_loci = NULL, # number of loci under selection
+                       selection_str_mean = NULL, # Presence of one allele compared to the other
+                       selection_str_var = NULL,
+                       pop.size = NULL,
+                       selected_mks = NULL){
   
   # Do the checks here
   if(is.null(inputfile) | is.null(map.file) | is.null(chrom.file))
@@ -133,7 +142,29 @@ pedsim2vcf <- function(inputfile=NULL,
     gt_matrix[which(gt_matrix == "3/2")] <- "2/3"
   }
   
-  # Add segregation distortion
+  # Add segregation distortion by selection
+  if(!is.null(n_selected_loci) & !is.null(selection_str_mean) & !is.null(selection_str_var & !is.null(pop.size))){
+    gt_matrix_pro <- gt_matrix[,-c(1:2)]
+    if(is.null(selected_mks))
+    selected_mks <- sample(nrow(gt_matrix_pro), n_selected_loci)
+
+    for(i in 1:length(selected_mks)){
+      temp_geno <- gt_matrix_pro[selected_mks[i],]
+      n_geno <- table(temp_geno)
+      # select individuals to be removed
+      geno_one <- which(temp_geno == names(n_geno)[1])
+      rm_ind <- round(rnorm(1, selection_str_mean, selection_str_var)*length(geno_one),0)
+      gt_matrix_pro <- gt_matrix_pro[,-geno_one[sample(length(geno_one), rm_ind)]]
+    }
+    
+    gt_matrix_pro <- gt_matrix_pro[,sample(ncol(gt_matrix_pro), pop.size)]
+    gt_matrix <- cbind(gt_matrix[,1:2], gt_matrix_pro)
+    
+    n.ind <- dim(gt_matrix)[2]
+    n.mk <- dim(gt_matrix)[1]
+  }
+  
+  # Add segregation distortion by genotyping error
   if(!(is.null(segregation.distortion.freq) & is.null(segregation.distortion.mean) & is.null(segregation.distortion.sd))){
     p_values <- abs(rnorm(round(nrow(gt_matrix)*segregation.distortion.freq,0), 
                           mean = segregation.distortion.mean, 
@@ -375,11 +406,8 @@ pedsim2vcf <- function(inputfile=NULL,
       vcf_format[miss] <- "./.:0,0"
     } else{ vcf_format[miss] <- "./." }
   }
-  
-  names1 <- lapply(strsplit(colnames(data)[-1], "_"), function (x) x[-length(x)])
-  names1 <- unique(sapply(names1, function(x) if(length(x)>1) paste0(x[1], "_", x[2]) else x))
-  
-  colnames(vcf_format) <- names1
+
+  colnames(vcf_format) <- c("P1", "P2", paste0("F1_", formatC(1:(dim(gt_matrix)[2]-2), width = nchar(dim(gt_matrix)[2]-2), format = "d", flag = "0")))
   
   if(is.null(chr)){
     chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
