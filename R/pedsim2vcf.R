@@ -170,8 +170,8 @@ pedsim2vcf <- function(inputfile=NULL,
   if(!is.null(n_selected_loci) & !is.null(selection_str_mean) & !is.null(selection_str_var & !is.null(pop.size))){
     gt_matrix_pro <- gt_matrix[,-c(1:2)]
     if(is.null(selected_mks))
-    selected_mks <- sample(nrow(gt_matrix_pro), n_selected_loci)
-
+      selected_mks <- sample(nrow(gt_matrix_pro), n_selected_loci)
+    
     for(i in 1:length(selected_mks)){
       temp_geno <- gt_matrix_pro[selected_mks[i],]
       n_geno <- table(temp_geno)
@@ -430,7 +430,7 @@ pedsim2vcf <- function(inputfile=NULL,
       vcf_format[miss] <- "./.:0,0"
     } else{ vcf_format[miss] <- "./." }
   }
-
+  
   colnames(vcf_format) <- c("P1", "P2", paste0("F1_", formatC(1:(dim(gt_matrix)[2]-2), width = nchar(dim(gt_matrix)[2]-2), format = "d", flag = "0")))
   
   id <- rownames(data)
@@ -438,7 +438,12 @@ pedsim2vcf <- function(inputfile=NULL,
   # Defining alleles in field REF and ALT
   ## REF
   if(use.as.alleles){
-    if(!is.null(reference.alleles)) ref <- reference.alleles else ref <- h.ref
+    if(!is.null(reference.alleles)){
+      ref <- reference.alleles 
+      if(!is.null(map.size)) ref <- ref[keep.mks]
+    } else { 
+      ref <- h.ref 
+    }
   } else{
     ref <- sample(c("A","T", "C", "G"), n.mk, replace = TRUE)
   }
