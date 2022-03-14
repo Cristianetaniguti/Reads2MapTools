@@ -86,13 +86,37 @@ pedsim2vcf <- function(inputfile=NULL,
                        selection_str_mean = NULL, # Presence of one allele compared to the other
                        selection_str_var = NULL,
                        pop.size = NULL,
-                       selected_mks = NULL){
+                       selected_mks = NULL,
+                       map.size = NULL){
   
   # Do the checks here
   if(is.null(inputfile) | is.null(map.file) | is.null(chrom.file))
     stop("You must define the PedigreeSim output files genotypes, map.file and chrom.file\n")
   
   data <- read.table(paste(inputfile), stringsAsFactors = FALSE, header = TRUE)
+  
+  if(is.null(chr)){
+    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
+    chr <- chr.info$chromosome
+  }
+  
+  if(is.null(pos)){
+    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
+    pos.info <- read.table(chrom.file, header = TRUE, stringsAsFactors = FALSE)
+    pos <- chr.info$position*((chr.mb*1000)/mean(pos.info$length))
+    pos <- round(pos,0)
+  } else if(any(pos=="cM")){
+    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
+    pos <- round(chr.info$position,2)
+  }
+  
+  if(!is.null(map.size)) {
+    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
+    keep.mks <- which(chr.info$position <= map.size)
+    chr <- chr[keep.mks]
+    pos <- pos[keep.mks]
+    data <- data[keep.mks,]
+  }
   
   # Infos
   rownames(data) <- data[,1]
@@ -408,21 +432,6 @@ pedsim2vcf <- function(inputfile=NULL,
   }
 
   colnames(vcf_format) <- c("P1", "P2", paste0("F1_", formatC(1:(dim(gt_matrix)[2]-2), width = nchar(dim(gt_matrix)[2]-2), format = "d", flag = "0")))
-  
-  if(is.null(chr)){
-    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
-    chr <- chr.info$chromosome
-  }
-  
-  if(is.null(pos)){
-    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
-    pos.info <- read.table(chrom.file, header = TRUE, stringsAsFactors = FALSE)
-    pos <- chr.info$position*((chr.mb*1000)/mean(pos.info$length))
-    pos <- round(pos,0)
-  } else if(any(pos=="cM")){
-    chr.info <- read.table(map.file, header = TRUE, stringsAsFactors = FALSE)
-    pos <- round(chr.info$position,2)
-  }
   
   id <- rownames(data)
   

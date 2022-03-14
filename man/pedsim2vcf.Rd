@@ -33,7 +33,8 @@ pedsim2vcf(
   selection_str_mean = NULL,
   selection_str_var = NULL,
   pop.size = NULL,
-  selected_mks = NULL
+  selected_mks = NULL,
+  map.size = NULL
 )
 }
 \arguments{
