@@ -131,9 +131,11 @@ create_maps_report_simu <- function(input.seq,
 #' @import onemap
 #' 
 #' @export
-create_filters_report_simu <- function(onemap_obj, SNPCall, CountsFrom, GenoCall, seed, depth) {
-  # onemap_prob <- filter_prob(onemap_obj, threshold = 0.8)
-  onemap_mis <- filter_missing(onemap_obj, threshold = 0.25)
+create_filters_report_simu <- function(onemap_obj, SNPCall, CountsFrom, GenoCall, seed, depth, threshold = NULL) {
+  if(!is.null(threshold)){
+    onemap_prob <- filter_prob(onemap_obj, threshold = threshold)
+  } else onemap_prob <- onemap_obj
+  onemap_mis <- filter_missing(onemap_prob, threshold = 0.25)
   bins <- find_bins(onemap_mis)
   onemap_bins <- create_data_bins(onemap_mis, bins)
   segr <- test_segregation(onemap_bins)
