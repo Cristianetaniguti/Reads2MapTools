@@ -143,7 +143,7 @@ create_gusmap_report_emp <- function(vcf_file,SNPCall, CountsFrom, GenoCall, par
                                  nThreads = 1)
     
     # Remove Inf markers
-    inf.mk <- which(is.infinite(haldane(rf_est$rf)))
+    inf.mk <- which(is.infinite(kosambi(rf_est$rf)))
     if(length(inf.mk) > 0){
       depth_Ref_m <- depth_Ref_m[,-inf.mk]
       depth_Alt_m <- depth_Alt_m[,-inf.mk]
@@ -153,7 +153,7 @@ create_gusmap_report_emp <- function(vcf_file,SNPCall, CountsFrom, GenoCall, par
   }
   
   #rf_est$rf[which(rf_est$rf > 0.5)] <- 0.4999999
-  dist.gus <- c(0,cumsum(haldane(rf_est$rf)))
+  dist.gus <- c(0,cumsum(kosambi(rf_est$rf)))
   phases.gus[which(phases.gus == 1 | phases.gus == 4)] <- 17
   phases.gus[which(phases.gus == 2 | phases.gus == 3)] <- 18
   phases.gus[which(phases.gus == 5 | phases.gus == 8)] <- 19

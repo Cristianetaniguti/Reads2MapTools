@@ -4,7 +4,14 @@
 \alias{segregation_test_vcf}
 \title{Filter markers with segregation distortion. Accepts only biallelic markers.}
 \usage{
-segregation_test_vcf(vcf, threshold, P1, P2, out.vcf = "filtered.vcf.gz")
+segregation_test_vcf(
+  vcf,
+  threshold,
+  P1,
+  P2,
+  out.vcf = "filtered.vcf.gz",
+  rm_just_noninfo = FALSE
+)
 }
 \arguments{
 \item{vcf}{path to the vcf file}
@@ -16,6 +23,8 @@ segregation_test_vcf(vcf, threshold, P1, P2, out.vcf = "filtered.vcf.gz")
 \item{P2}{parent 2 ID}
 
 \item{out.vcf}{output VCF file name}
+
+\item{rm_just_noninfo}{filter out only non-informative markers}
 }
 \description{
 Filter markers with segregation distortion. Accepts only biallelic markers.
