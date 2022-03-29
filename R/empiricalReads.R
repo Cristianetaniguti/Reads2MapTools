@@ -39,9 +39,11 @@ create_map_report_emp <- function(input.seq, CountsFrom, SNPCall, GenoCall, max_
 #' @import onemap
 #' 
 #' @export
-create_filters_report_emp <- function(onemap_obj, SNPCall,CountsFrom, GenoCall, chromosome) {
-  # onemap_prob <- filter_prob(onemap_obj, threshold = 0.8)
-  onemap_mis <- filter_missing(onemap_obj, threshold = 0.25)
+create_filters_report_emp <- function(onemap_obj, SNPCall,CountsFrom, GenoCall, chromosome, threshold = NULL) {
+  if(!is.null(threshold)){
+    onemap_prob <- filter_prob(onemap_obj, threshold = threshold)
+  } else onemap_prob <- onemap_obj 
+  onemap_mis <- filter_missing(onemap_prob, threshold = 0.25)
   bins <- find_bins(onemap_mis)
   onemap_bins <- create_data_bins(onemap_mis, bins)
   twopts <- rf_2pts(input.obj = onemap_bins, rm_mks = T) # Do not keep redundant markers
