@@ -6,22 +6,40 @@
 #' @param max.missing maximum fraction of missing data allowed by marker
 #' @param vcf.out character defining output file name
 #' @param ploidy integer defining the samples ploidy
+#' @param min.gpm set minimum value for GPM parameter. Genotypes bellow this value will be replaced by missing data.
+#' @param min.phpm set minimum value for PHPM parameter. Genotypes bellow this value will be replaced by missing data.
 #' 
 #' @import vcfR
 #' 
 #' @export
-filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, vcf.out = "filtered.vcf.gz"){
-  vcf <- read.vcfR(vcf.file)
+filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, min.gpm = NULL,
+                             min.phpm = NULL, vcf.out = "filtered.vcf.gz"){
+  vcf <- read.vcfR(vcf.file, verbose = FALSE)
   
   gt <- extract.gt(vcf)
   gq <- extract.gt(vcf, element = "GQ")
+  gpm <- extract.gt(vcf, element = "GPM")
+  phpm <- extract.gt(vcf, element = "PHPM")
   
   filt.gt <- filter_geno_multi(gt.multi = gt, P1, P2)
   fix.up <- vcf@fix
   idx <- match(rownames(filt.gt), paste0(fix.up[,1],"_",fix.up[,2]))
+  old.gt <- gt[idx,]
   fix.up <- fix.up[idx,]
   gq <- gq[idx,]
-  up.fix <- get_alternatives(fix = fix.up, filt.gt = filt.gt, P1, P2)
+  gpm <- gpm[idx,]
+  phpm <- phpm[idx,]
+  up.fix <- get_alternatives(fix = fix.up, old.gt = old.gt, P1, P2)
+  
+  if(!is.null(min.gpm)){
+    gpm <- apply(gpm, 2, as.numeric)
+    filt.gt[which(gpm < min.gpm)] <- NA
+  }
+  
+  if(!is.null(min.phpm)){
+    phpm <- apply(phpm, 2, as.numeric)
+    filt.gt[which(phpm < min.phpm)] <- NA
+  }
   
   if(!is.null(max.missing)){
     mis <- apply(filt.gt, 1, function(x) sum(is.na(x))/length(x))
@@ -29,17 +47,19 @@ filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, vcf.o
     
     filt.gt <- filt.gt[-idx,]
     gq<- gq[-idx,]
+    phpm <- phpm[-idx,]
+    gpm <- gpm[-idx,]
     up.fix <- up.fix[-idx,]
   }
   
   ploidy <- 4
   filt.gt[is.na(filt.gt)] <- paste0(rep(".", ploidy), collapse = "/")
-  format <- matrix(paste0(filt.gt, ":", gq), nrow = nrow(filt.gt))
+  format <- matrix(paste0(filt.gt, ":", gq, ":", gpm, ":", phpm), nrow = nrow(filt.gt))
   
   colnames(format) <- colnames(filt.gt)
   vcf.new <- vcf
   vcf.new@fix <- up.fix
-  vcf.new@gt <- cbind(FORMAT="GT:GQ", format)
+  vcf.new@gt <- cbind(FORMAT="GT:GQ:GPM:PHPM", format)
   
   write.vcf(vcf.new, file = vcf.out)
 }
@@ -109,12 +129,12 @@ filter_geno_multi <- function(gt.multi, P1, P2){
 #' keep only the ones found in the parents
 #' 
 #' @param fix fix part of vcfR object
-#' @param gt genotypes matrix (markers x individuals) with multiallelic markers 
+#' @param old.gt genotypes matrix (markers x individuals) with multiallelic markers 
 #' @param P1 character with one of the parents ID
 #' @param P2 character with other parent ID
 #' 
-get_alternatives <- function(fix, filt.gt, P1, P2){
-  p <- filt.gt[,which(colnames(filt.gt) %in% c(P1, P2))] 
+get_alternatives <- function(fix, old.gt, P1, P2){
+  p <- old.gt[,which(colnames(old.gt) %in% c(P1, P2))] 
   p <- paste0(p[,1],"/",p[,2])
   p <- strsplit(p, "/")
   p <- lapply(p, unique)
