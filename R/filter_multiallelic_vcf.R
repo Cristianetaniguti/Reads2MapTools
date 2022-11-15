@@ -18,8 +18,6 @@ filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, min.g
   
   gt <- extract.gt(vcf)
   gq <- extract.gt(vcf, element = "GQ")
-  gpm <- extract.gt(vcf, element = "GPM")
-  phpm <- extract.gt(vcf, element = "PHPM")
   
   filt.gt <- filter_geno_multi(gt.multi = gt, P1, P2)
   fix.up <- vcf@fix
@@ -27,16 +25,19 @@ filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, min.g
   old.gt <- gt[idx,]
   fix.up <- fix.up[idx,]
   gq <- gq[idx,]
-  gpm <- gpm[idx,]
-  phpm <- phpm[idx,]
+
   up.fix <- get_alternatives(fix = fix.up, old.gt = old.gt, P1, P2)
   
   if(!is.null(min.gpm)){
+    gpm <- extract.gt(vcf, element = "GPM")
+    gpm <- gpm[idx,]
     gpm <- apply(gpm, 2, as.numeric)
     filt.gt[which(gpm < min.gpm)] <- NA
   }
   
   if(!is.null(min.phpm)){
+    phpm <- extract.gt(vcf, element = "PHPM")
+    phpm <- phpm[idx,]
     phpm <- apply(phpm, 2, as.numeric)
     filt.gt[which(phpm < min.phpm)] <- NA
   }
@@ -52,14 +53,13 @@ filter_multi_vcf <- function(vcf.file, P1, P2, ploidy, max.missing = NULL, min.g
     up.fix <- up.fix[-idx,]
   }
   
-  ploidy <- 4
   filt.gt[is.na(filt.gt)] <- paste0(rep(".", ploidy), collapse = "/")
-  format <- matrix(paste0(filt.gt, ":", gq, ":", gpm, ":", phpm), nrow = nrow(filt.gt))
+  format <- matrix(paste0(filt.gt, ":", gq), nrow = nrow(filt.gt))
   
   colnames(format) <- colnames(filt.gt)
   vcf.new <- vcf
   vcf.new@fix <- up.fix
-  vcf.new@gt <- cbind(FORMAT="GT:GQ:GPM:PHPM", format)
+  vcf.new@gt <- cbind(FORMAT="GT:GQ", format)
   
   write.vcf(vcf.new, file = vcf.out)
 }

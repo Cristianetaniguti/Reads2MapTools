@@ -240,62 +240,34 @@ updog_genotype <- function(vcf=NULL,
   osize[idx] <- NA
   oref[idx] <- NA
   
-  geno_matrix <- maxpostprob <- matrix(rep(NA,dim(osize)[2]*dim(osize)[1]),nrow=dim(osize)[1])
-  P1 <- P2 <- rep(NA, n.mks)
-  if(is(onemap.object, "f2")){
-    cl <- parallel::makeCluster(as.numeric(cores))
-    doParallel::registerDoParallel(cl = cl)
-    gene_est <- foreach(i = 1:n.mks,
-                        .combine = 'c',
-                        .multicombine=TRUE,
-                        .export = "flexdog") %dopar% {
-                          fout <- flexdog(refvec  = oref[i,],
-                                          sizevec = osize[i,],
-                                          ploidy  = 2,
-                                          p1ref = pref[i],
-                                          p1size = psize[i],
-                                          model = "s1")
-                          list(fout)
-                        }
-    parallel::stopCluster(cl)
-    
-    P1 <- unlist(sapply(sapply(gene_est, "[", 8), "[", 1))
-  } else if(is(onemap.object, "outcross")){
-    cl <- parallel::makeCluster(as.numeric(cores))
-    doParallel::registerDoParallel(cl = cl)
-    gene_est <- foreach(i = 1:n.mks) %dopar% {
-      ## fit flexdog                                                                                                                             
-      fout <- updog::flexdog(refvec  = oref[i,],
-                             sizevec = osize[i,],
-                             ploidy  = 2,
-                             p1ref = pref[i,2],
-                             p1size = psize[i,2],
-                             p2ref = pref[i,1],
-                             p2size = psize[i,1],
-                             model = "f1")
-      fout
-    }
-    parallel::stopCluster(cl)
-    P1 <- unlist(sapply(sapply(gene_est, "[", 8), "[", 2))
-    P2 <- unlist(sapply(sapply(gene_est, "[", 8), "[", 1))
+  osize <- cbind(osize, psize)
+  oref <- cbind(oref, pref)
+  
+  if(is(onemap.object, "outcross")){
+    gene_est <- multidog(refmat  = oref,
+                         sizemat = osize,
+                         ploidy  = 2,
+                         p1_id = parent1,
+                         p2_id = parent2,
+                         model = "f1")
+    P1 <- gene_est$snpdf$p1geno
+    P2 <- gene_est$snpdf$p2geno
+  } else {
+    stop("Crosstype not implemented")
   }
   
-  temp1 <- lapply(gene_est, "[[", 10)
-  temp2 <- lapply(gene_est, "[[", 11)
+  geno_matrix <- matrix(gene_est$inddf$geno, 
+                        ncol = length(unique(gene_est$inddf$ind)), 
+                        byrow = T)
+  maxpostprob <- matrix(gene_est$inddf$maxpostprob, 
+                        ncol = length(unique(gene_est$inddf$ind)), 
+                        byrow = T)
   
-  for(i in 1:n.mks){
-    geno_matrix[i,] <- temp1[[i]]
-    maxpostprob[i,] <- temp2[[i]]
-  }
-  
-  postmat <- lapply(gene_est, "[", 6)
-
-  genotypes_probs <- postmat[[1]]$postmat
-  for(i in 2:length(postmat)) # Order: mk 1 1 1 ind 1 2 3
-    genotypes_probs <- rbind(genotypes_probs, postmat[[i]]$postmat)
+  genotypes_probs  <- gene_est$inddf[grep("Pr_", names(gene_est$inddf))]
   
   # sort - order mk 1 2 3 ind 1 1 1 
-  idx <- rep(1:dim(osize)[2], dim(osize)[1])
+  idx <- rep(1:length(unique(gene_est$inddf$ind)), 
+                      length(unique(gene_est$inddf$snp)))
   genotypes_probs <- genotypes_probs[order(idx), ]
   
   # Check if sum 1
