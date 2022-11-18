@@ -39,6 +39,7 @@
 #'
 #' @importFrom vcfR read.vcfR
 #' @import onemap
+#' @importFrom updog multidog
 #'   
 #' @export
 updog_genotype <- function(vcf=NULL,
