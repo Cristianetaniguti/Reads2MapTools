@@ -37,7 +37,6 @@
 #' Empirical Bayes and Mendelian Segregation for Genotyping Autopolyploids from 
 #' Messy Sequencing Data. bioRxiv. doi: 10.1101/281550.
 #'
-#' @import foreach doParallel updog
 #' @importFrom vcfR read.vcfR
 #' @import onemap
 #'   
@@ -404,7 +403,7 @@ updog_genotype <- function(vcf=NULL,
   # sort - order mk 1 1 1 ind 1 2 3 
   idx <- rep(1:onemap_updog.new$n.mar, onemap_updog.new$n.ind)
   genotypes_probs <- genotypes_probs[order(idx), ]
-  
+
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap_updog.new, 
                       out_vcf = out_vcf, 

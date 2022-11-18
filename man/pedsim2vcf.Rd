@@ -79,7 +79,7 @@ pedsim2vcf(
 \item{use.as.alleles}{if \code{TRUE} uses codification in genotypes dat to define the reference and alternative
 alleles fields in VCF, arguments reference.alleles or haplo.ref will be used to define which are the reference alleles}
 
-\item{segregation.distortion.freq}{numeric between 0 and 1 to define the frequency of distorted markers. For example, if 0.3, the distortion will be applied to 30% of the markers. This does not consider linkage (see run_pedsim).}
+\item{segregation.distortion.freq}{numeric between 0 and 1 to define the frequency of distorted markers. For example, if 0.3, the distortion will be applied to 30\% of the markers. This does not consider linkage (see run_pedsim).}
 
 \item{segregation.distortion.mean}{numeric defining the mean p-value expected in the chi-square test of distorted markers. A normal distribution is used to sample values using the defined mean and standard deviation. This does not consider linkage (see run_pedsim).}
 
@@ -115,9 +115,8 @@ Sequencing Data When Constructing Genetic Maps Using Biparental Outcrossed Popul
 \emph{Genetics}. ISSN 0016-6731.
 }
 \seealso{
-vcf file description
-<http://www.internationalgenome.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-40/>
+vcf file description <http://www.internationalgenome.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-40/>
 }
 \author{
-Cristiane Taniguti, \email{chtaniguti@usp.br}
+Cristiane Taniguti, \email{chtaniguti@tamu.edu}
 }

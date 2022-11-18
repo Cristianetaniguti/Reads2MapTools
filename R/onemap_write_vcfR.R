@@ -72,10 +72,10 @@ onemap_write_vcfR <- function(onemap.object,
   
   # non-informative
   idx <- which((parent1.geno == "0/0" & parent2.geno == "0/0") | 
-               (parent1.geno == "1/1" & parent2.geno == "1/1") |
-               (parent1.geno == "0/0" & parent2.geno == "1/1") |
-               (parent1.geno == "1/1" & parent2.geno == "0/0") |
-                any(parent1.geno == "./." | parent2.geno == "./.")
+                 (parent1.geno == "1/1" & parent2.geno == "1/1") |
+                 (parent1.geno == "0/0" & parent2.geno == "1/1") |
+                 (parent1.geno == "1/1" & parent2.geno == "0/0") |
+                 any(parent1.geno == "./." | parent2.geno == "./.")
   )
   GT[idx, ][which(GT[idx, ] == "1")] <- "0/0" 
   GT[idx, ][which(GT[idx, ] == "3")] <- "1/1"
@@ -83,7 +83,11 @@ onemap_write_vcfR <- function(onemap.object,
   # PL
   PL <- probs
   PL <- -10*log(PL, base = 10)
-  PL[which(PL == "Inf" | PL == "-Inf" | PL > 99)] <- 99
+  PL <- apply(PL, 2, function(x) {
+    x[which(x == "Inf" | x == "-Inf" | x > 99)] <- 99
+    return(x)
+  })
+  
   if(length(which(is.na(PL))) > 0)
     PL[which(is.na(PL))] <- 0
   PL <- t(apply(PL, 1, function(x) x-x[which.min(x)]))
@@ -111,7 +115,7 @@ onemap_write_vcfR <- function(onemap.object,
   parents[which(parents == "1/1")] <- "1/1:99:99,99,0"
   parents[which(parents == "0/0")] <- "0/0:99:0,99,99"
   parents[which(parents == "0/1")] <- "0/1:99:99,0,99"
-
+  
   gt <- cbind(parents,gt)
   colnames(gt)[1:2] <- c(parent1.id, parent2.id)
   

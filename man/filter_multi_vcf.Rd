@@ -10,6 +10,8 @@ filter_multi_vcf(
   P2,
   ploidy,
   max.missing = NULL,
+  min.gpm = NULL,
+  min.phpm = NULL,
   vcf.out = "filtered.vcf.gz"
 )
 }
@@ -21,6 +23,10 @@ filter_multi_vcf(
 \item{ploidy}{integer defining the samples ploidy}
 
 \item{max.missing}{maximum fraction of missing data allowed by marker}
+
+\item{min.gpm}{set minimum value for GPM parameter. Genotypes bellow this value will be replaced by missing data.}
+
+\item{min.phpm}{set minimum value for PHPM parameter. Genotypes bellow this value will be replaced by missing data.}
 
 \item{vcf.out}{character defining output file name}
 

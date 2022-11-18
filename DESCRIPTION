@@ -7,7 +7,16 @@ Depends: R (>= 4.0)
 Imports: doParallel,
          matrixStats,
          updog,
-         polyRAD
+         polyRAD,
+         dplyr,
+         ggplot2,
+         ggpubr,
+         lubridate,
+         onemap,
+         stringr,
+         tidyr,
+         vcfR,
+         gtools
 Maintainer: Cristiane Taniguti <chtaniguti@usp.br>
 Description: Utilities used by Reads2Map
 License: GPL-3
