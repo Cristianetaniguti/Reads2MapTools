@@ -67,7 +67,7 @@ vcf2progeny_haplotypes <- function(vcfR.object,
       ind_1 <- sapply(strsplit(GT_matrix[CHROM.now,ind.idx], "[|]"), "[",1)
       ind_2 <- sapply(strsplit(GT_matrix[CHROM.now,ind.idx], "[|]"), "[",2)
       
-      p.names <- c("H1", "H2", "H1", "H2")
+      p.names <- c("H2", "H1", "H1", "H2")
       Hs <-  rep(list(rep(NA, length(ind_1))),2)
       progeny_haplotypes_obj <- data.frame()
       for(w in 1:2){ # w is the progeny individual haplotype

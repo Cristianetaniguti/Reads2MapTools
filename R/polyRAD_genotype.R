@@ -296,6 +296,8 @@ recode_parents_pl <- function(parent.geno){
 #' @export
 polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   # Do the checks
+  vcf_in <- read.vcfR(vcf)
+  
   poly.test <- VCF2RADdata(vcf, phaseSNPs = FALSE, 
                            min.ind.with.reads = 0,
                            min.ind.with.minor.allele = 0)
@@ -355,10 +357,11 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   
   # Not all markers in the vcf are in genotypes
   idx <- match(probs_ind$ID, vcf_geno@fix[,3])
-  vcf_geno@fix <- vcf_geno@fix[idx,]
-  vcf_geno@gt <- vcf_geno@gt[idx,]
-  gt.p <- gt.p[idx,]
-  
+  if(!all(is.na(idx))) {
+    vcf_geno@fix <- vcf_geno@fix[idx,]
+    vcf_geno@gt <- vcf_geno@gt[idx,]
+    gt.p <- gt.p[idx,]
+  }
   probs_ind <- cbind(probs_ind, gt.p)
   
   idx <- match(colnames(vcf_geno@gt)[-1], colnames(probs_ind))
