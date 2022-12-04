@@ -6,7 +6,7 @@
 The probabilities exported by Export_MAPpoly are included in the 
 RADdata2VCF vcf file}
 \usage{
-polyRAD_genotype_vcf(vcf, parent1, parent2, outfile = "out.vcf.gz")
+polyRAD_genotype_vcf(vcf, parent1, parent2, ploidy = 4, out_vcf = "out.vcf.gz")
 }
 \arguments{
 \item{vcf}{vcf file}
