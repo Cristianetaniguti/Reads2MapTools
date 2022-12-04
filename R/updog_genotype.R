@@ -546,8 +546,6 @@ updog_genotype_vcf <- function(vcf=NULL,
   vcfR.object <- read.vcfR(vcf, verbose = F) 
   input_gt <- extract.gt(vcfR.object)
   
-  temp <- matrix(paste0(input_gt, ":",depths), nrow = nrow(depths))
-  
   depths <- extract.gt(vcfR.object, vcf.par)
   oref <- sapply(strsplit(depths, ","), "[[",1)
   oref <- matrix(oref, nrow = nrow(depths))

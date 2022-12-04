@@ -1,7 +1,7 @@
 Package: Reads2MapTools
 Type: Package
 Title: Reads2MapTools
-Version: 0.3.3
+Version: 0.3.4
 Author: Cristiane Taniguti
 Depends: R (>= 4.0)
 Imports: doParallel,

@@ -594,12 +594,12 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   
   # Remove missing data
   rm.mks <- which(apply(depths[,parents.id],1, function(x) any(is.na(x))))
-  depths <- depths[-rm.mks,]
+  if(length(rm.mks) > 0) depths <- depths[-rm.mks,]
   oref <- sapply(strsplit(depths, ","), "[[",1)
   oref <- matrix(oref, nrow = nrow(depths))
   oref <- apply(oref, 2, as.numeric)
   osize <- extract.gt(vcfR.object, "DP")
-  osize <- osize[-rm.mks,]
+  if(length(rm.mks) > 0) osize <- osize[-rm.mks,]
   osize <- apply(osize, 2, as.numeric)
   oalt <- osize - oref
   colnames(oref) <- colnames(oalt) <- colnames(depths)
@@ -635,7 +635,8 @@ supermassa_genotype_vcf <- function(vcf=NULL,
 
   geno_recode <- recode_geno_vcf(geno, ploidy, oref_cov = oref, osize_cov = osize)
 
-  diffe <- sum(geno_recode != input_gt[-rm.mks,], na.rm = T)/length(geno_recode)
+  if(length(rm.mks) > 0) input_gt <- input_gt[-rm.mks,]
+  diffe <- sum(geno_recode != input_gt, na.rm = T)/length(geno_recode)
   cat(paste("The approach changed", round(diffe*100,2), "% of the genotypes"))
   
   # set ord mk 1 2 3 ind 1 1 1
@@ -709,7 +710,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
             grep("=PL,", new.vcfR.object@meta))
   
   new.vcfR.object@meta <- new.vcfR.object@meta[c(1,2, keep)]
-  new.vcfR.object@fix <- new.vcfR.object@fix[-rm.mks,]
+  if(length(rm.mks) > 0) new.vcfR.object@fix <- new.vcfR.object@fix[-rm.mks,]
   new.vcfR.object@fix[,3] <- paste0(new.vcfR.object@fix[,1],"_",new.vcfR.object@fix[,2])
   new.vcfR.object@fix[,"INFO"] <- "."
   
