@@ -623,7 +623,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   clusterExport(cl, c("supermassa_parallel_poly", "ploidy", "parse.geno"))
   result <- parLapply(cl, depths_prepared, function(x) supermassa_parallel_poly(supermassa_4parallel = x, ploidy = ploidy))
   parallel::stopCluster(cl)
-  mks <- unlist(lapply(result, "[", 1))
+  mks <- unlist(lapply(result, "[", 1)) 
   geno <- t(sapply(result, "[[", 2))
   error <- lapply(result, "[[", 3)
   error <- do.call(rbind, error)
@@ -631,7 +631,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   
   geno <- cbind(geno, pgeno)
 
-  geno_recode <- recode_geno_vcf(geno, ploidy)
+  geno_recode <- recode_geno_vcf(geno, ploidy, oref_cov = oref, osize_cov = osize)
 
   diffe <- sum(geno_recode != input_gt[-rm.mks,], na.rm = T)/length(geno_recode)
   cat(paste("The approach changed", round(diffe*100,2), "% of the genotypes"))
@@ -666,7 +666,20 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   PL <- paste0(GQ, ":",PL)
   PL <- split(PL, rep(1:length(mks), each = length(colnames(depths))-2))
   PL <- do.call(rbind, PL)
-  PL <- cbind(PL, ":.:.:.", ":.:.:.")
+  
+  # Parents probs
+  zeros <- (ploidy + 1) - str_count(geno_recode[,parents.id], "0")
+  template_all <- vector()
+  for(i in 1:(ploidy + 1)){
+    template <- rep(99, (ploidy + 1))
+    template[i] <- "0"
+    template_all[i] <- paste0("99:", paste0(template, collapse = ","))
+  }
+  names(template_all) <- 1:(ploidy + 1)
+  prob.parents <- template_all[match(zeros, names(template_all))]
+  prob.parents <- matrix(prob.parents, ncol = 2)
+
+  PL <- cbind(PL, prob.parents)
   
   depths_temp <- depths[,-parents.id]
   depths <- cbind(depths_temp, depths[,parents.id])

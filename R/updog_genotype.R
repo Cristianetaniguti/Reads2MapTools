@@ -545,6 +545,8 @@ updog_genotype_vcf <- function(vcf=NULL,
   vcfR.object <- read.vcfR(vcf, verbose = F) 
   input_gt <- extract.gt(vcfR.object)
   
+  temp <- matrix(paste0(input_gt, ":",depths), nrow = nrow(depths))
+  
   depths <- extract.gt(vcfR.object, vcf.par)
   oref <- sapply(strsplit(depths, ","), "[[",1)
   oref <- matrix(oref, nrow = nrow(depths))
@@ -553,7 +555,7 @@ updog_genotype_vcf <- function(vcf=NULL,
   osize <- apply(osize, 2, as.numeric)
   colnames(oref) <- colnames(osize) <- colnames(depths)
   rownames(oref) <- rownames(osize) <- rownames(depths)
-  
+
   if(crosstype == "outcross"){
     gene_est <- multidog(refmat  = oref,
                          sizemat = osize,
@@ -582,11 +584,17 @@ updog_genotype_vcf <- function(vcf=NULL,
   
   # Check if sum 1
   probs <- t(apply(genotypes_probs, 1, function(x) x/sum(x)))
+  parents.id <- which(colnames(osize) %in% c(parent1, parent2))
   
-  P1 <- recode_geno_vcf(P1, ploidy)
-  P2 <- recode_geno_vcf(P2, ploidy)
+  P1 <- recode_geno_vcf(P1, ploidy,oref_cov = oref[,parents.id[1]], 
+                        osize_cov = osize[,parents.id[1]])
+  P2 <- recode_geno_vcf(P2, ploidy, oref_cov = oref[,parents.id[2]], 
+                        osize_cov = osize[,parents.id[2]])
   
-  geno_matrix <- recode_geno_vcf(x = geno_matrix, ploidy)
+  geno_matrix <- recode_geno_vcf(x = geno_matrix, 
+                                 ploidy,
+                                 oref_cov = oref[,-parents.id], 
+                                 osize_cov = osize[,-parents.id])
   
   diffe <- sum(geno_matrix != input_gt[,-c(which(colnames(depths) %in% c(parent1, parent2)))], na.rm = T)/length(geno_matrix)
   cat(paste("The approach changed", round(diffe,2)*100, "% of the genotypes."))
@@ -619,18 +627,40 @@ updog_genotype_vcf <- function(vcf=NULL,
   PL <- paste0(GQ, ":",PL)
   PL <- split(PL, rep(1:length(gene_est$snpdf$snp), each = length(unique(gene_est$inddf$ind))))
   PL <- do.call(rbind, PL)
+  geno_matrix[is.na(geno_matrix)] <- paste0(c(rep("./", ploidy-1),"."), collapse = "")
+  depths[is.na(depths)] <- "."
+  osize[is.na(osize)] <- "."
   
   gt <- matrix(paste0(geno_matrix, ":", 
                       depths[,-c(which(colnames(depths) %in% c(parent1, parent2)))],":", 
+                      osize[,-c(which(colnames(depths) %in% c(parent1, parent2)))], ":",
                PL),  
                nrow = dim(geno_matrix)[1])
   
-  parents <- matrix(c(paste0(P1, ":.:.:."), paste0(P2, ":.:.:.")), ncol = 2)
+  
+  # Parents probs
+  zeros <- (ploidy + 1) - str_count(cbind(P1, P2), "0")
+  template_all <- vector()
+  for(i in 1:(ploidy + 1)){
+    template <- rep(99, (ploidy + 1))
+    template[i] <- "0"
+    template_all[i] <- paste0("99:", paste0(template, collapse = ","))
+  }
+  names(template_all) <- 1:(ploidy + 1)
+  prob.parents <- template_all[match(zeros, names(template_all))]
+  prob.parents <- matrix(prob.parents, ncol = 2)
+  
+  parents <- paste0(cbind(P1, P2), ":", 
+                    depths[,c(which(colnames(depths) %in% c(parent1, parent2)))],":",
+                    osize[,c(which(colnames(depths) %in% c(parent1, parent2)))],":",
+                    prob.parents)
+  parents <- matrix(parents, ncol = 2)
+  
   colnames(parents) <- c(parent1, parent2)
   colnames(gt) <- colnames(geno_matrix)
   rownames(gt) <- rownames(geno_matrix)
   
-  FORMAT <- "GT:AD:GQ:PL"
+  FORMAT <- "GT:AD:DP:GQ:PL"
   
   gt <- cbind(FORMAT, gt, parents)
   
@@ -640,6 +670,7 @@ updog_genotype_vcf <- function(vcf=NULL,
   
   keep <- c(grep("=GT,", new.vcfR.object@meta),
             grep(vcf.par, new.vcfR.object@meta),
+            grep("=DP", new.vcfR.object@meta),
             grep("=GQ,", new.vcfR.object@meta),
             grep("=PL,", new.vcfR.object@meta))
   

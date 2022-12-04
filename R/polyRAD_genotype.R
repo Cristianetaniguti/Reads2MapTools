@@ -291,6 +291,7 @@ recode_parents_pl <- function(parent.geno){
 #' 
 #' @import polyRAD
 #' @import vcfR
+#' @importFrom stringr str_count
 #' @importFrom tidyr pivot_wider
 #' 
 #' @export
@@ -304,8 +305,9 @@ polyRAD_genotype_vcf <- function(vcf,
   gt_in <- extract.gt(vcf_in)
   
   mydata <-  VCF2RADdata(vcf, phaseSNPs = FALSE,
-                         min.ind.with.reads = 0,
-                         min.ind.with.minor.allele = 0, taxaPloidy = ploidy)
+                         min.ind.with.reads = 0.05*ncol(gt_in),
+                         min.ind.with.minor.allele = 0.05*ncol(gt_in), 
+                         taxaPloidy = ploidy, maxLoci = 1)
   
   mydata <- SetDonorParent(mydata, parent1)
   mydata <- SetRecurrentParent(mydata, parent2)
@@ -367,9 +369,28 @@ polyRAD_genotype_vcf <- function(vcf,
   if(!all(is.na(idx))) {
     vcf_geno@fix <- vcf_geno@fix[idx,]
     vcf_geno@gt <- vcf_geno@gt[idx,]
+    gt <- gt[idx,]
   }
-  probs_ind <- cbind(probs_ind, ".:.", ".:.")
-  colnames(probs_ind)[length(probs_ind):(length(probs_ind)-1)] <- c(parent1, parent2)
+  
+  # Parents probs
+  zeros <- (ploidy + 1) - str_count(gt[,c(parent1,parent2)], "0")
+  template_all <- vector()
+  for(i in 1:(ploidy + 1)){
+    template <- rep(99, (ploidy + 1))
+    template[i] <- "0"
+    template_all[i] <- paste0(paste0(template, collapse = ","), ":99")
+  }
+  names(template_all) <- 1:(ploidy + 1)
+  prob.parents <- template_all[match(zeros, names(template_all))]
+  
+  # missing data for the multiallelics - I couldn´t find the option to avoid generating them
+  if(length(grep("2", gt[,c(parent1,parent2)]))> 0)
+    prob.parents[grep("2", gt[,c(parent1,parent2)])] <- ".:."
+  
+  prob.parents <- matrix(prob.parents, ncol = 2)
+  
+  probs_ind <- cbind(probs_ind, prob.parents)
+  colnames(probs_ind)[(length(probs_ind)-1):length(probs_ind)] <- c(parent1, parent2)
   
   idx <- match(colnames(vcf_geno@gt)[-1], colnames(probs_ind))
   

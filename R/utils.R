@@ -85,7 +85,13 @@ write_report <- function(tab, out_name, max_cores=1) {
   vroom::vroom_write(tab, paste0(out_name, ".tsv.gz"), num_threads= max_cores)
 }
 
-recode_geno_vcf <- function(x, ploidy) {
+#' @export
+recode_geno_vcf <- function(x, ploidy, oref_cov, osize_cov) {
+  
+  ref_high <- as.numeric(oref_cov) >= (as.numeric(osize_cov) - as.numeric(oref_cov))
+  x_up <- x
+  x_up[which(x > ploidy/2 & !ref_high)] <- ploidy - x[which(x > ploidy/2 & !ref_high)] # set as reference but is alt
+  x_up[which(x < ploidy/2 & ref_high)] <- ploidy - x[which(x < ploidy/2 & ref_high)] # set as alt but is ref
   
   genos <- list()
   for(i in 1:(ploidy+1)){
@@ -95,9 +101,9 @@ recode_geno_vcf <- function(x, ploidy) {
   genos <- sapply(genos, function(x) paste0(x, collapse = "/"))
   names(genos) <- ploidy:0
   
-  y <- genos[match(x, names(genos))]
+  y <- genos[match(x_up, names(genos))]
   
-  if(is(x, "matrix")) y <- matrix(y, nrow = nrow(x))
+  if(is(x_up, "matrix")) y <- matrix(y, nrow = nrow(x))
   
   return(y)
 }
