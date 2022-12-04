@@ -6,7 +6,7 @@
 Extract from the SuperMassa output, the offspring genotype, the marker type, and the error
 probabilities}
 \usage{
-supermassa_parallel(supermassa_4parallel, class = NULL, ploidy)
+supermassa_parallel(supermassa_4parallel, class = NULL)
 }
 \description{
 Use output list from depth_prepare and run Supermassa for each marker (first level of the list)

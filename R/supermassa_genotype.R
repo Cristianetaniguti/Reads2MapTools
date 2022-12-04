@@ -336,7 +336,7 @@ depth_prepare <- function(extracted_depth){
 ##' Extract from the SuperMassa output, the offspring genotype, the marker type, and the error
 ##' probabilities
 ##' @export
-supermassa_parallel <- function(supermassa_4parallel, class=NULL, ploidy){
+supermassa_parallel <- function(supermassa_4parallel, class=NULL){
   n.ind <- length(supermassa_4parallel[[2]])
   all.ind.names <- supermassa_4parallel[[2]]
   if(length(which(supermassa_4parallel[[4]][,1] == 0 & supermassa_4parallel[[4]][,2]== 0)) > 0) {
@@ -366,7 +366,7 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL, ploidy){
     out_file <- paste0("out_prob",supermassa_4parallel[[1]],".txt")
     
     command_mass <- paste("python", paste0(system.file(package = "Reads2MapTools"),"/python_scripts/","SuperMASSA.py"),
-                          "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range ", ploidy,
+                          "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range 2",
                           " --f1_parent_data", paste0(getwd(),"/",pdepth_temp), 
                           " --print_genotypes --naive_posterior_reporting_threshold 0",
                           "--save_geno_prob_dist", paste0(getwd(),"/",out_file))
@@ -570,6 +570,7 @@ recode_parents_sm <- function(x) {
 ##' @import doParallel parallel
 ##' 
 ##' @importFrom matrixStats logSumExp
+##' @importFrom stringr str_count
 ##' @import vcfR 
 ##' 
 ##' @export
@@ -618,10 +619,11 @@ supermassa_genotype_vcf <- function(vcf=NULL,
                                  paren.geno = data.frame(oref[i,parents.id], oalt[i,parents.id]))
   }
   
+  ploidy2 <- ploidy
   cl <- parallel::makeCluster(as.numeric(cores))
   registerDoParallel(cl)
-  clusterExport(cl, c("supermassa_parallel_poly", "ploidy", "parse.geno"))
-  result <- parLapply(cl, depths_prepared, function(x) supermassa_parallel_poly(supermassa_4parallel = x, ploidy = ploidy))
+  clusterExport(cl, c("supermassa_parallel_poly", "ploidy2"))
+  result <- parLapply(cl, depths_prepared, function(x) supermassa_parallel_poly(supermassa_4parallel = x, ploidy = ploidy2))
   parallel::stopCluster(cl)
   mks <- unlist(lapply(result, "[", 1)) 
   geno <- t(sapply(result, "[[", 2))

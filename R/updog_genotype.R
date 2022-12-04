@@ -529,6 +529,7 @@ recode_parents_up <- function(x) {
 #'
 #' @import vcfR 
 #' @importFrom updog multidog
+#' @importFrom stringr str_count
 #'   
 #' @export
 updog_genotype_vcf <- function(vcf=NULL,
