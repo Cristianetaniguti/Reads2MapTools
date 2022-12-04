@@ -616,14 +616,14 @@ supermassa_genotype_vcf <- function(vcf=NULL,
     depths_prepared[[i]] <- list(mk=rownames(depths)[i], 
                                  inds= inds,
                                  prog.geno = prog.geno,
-                                 paren.geno = data.frame(oref[i,parents.id], oalt[i,parents.id]))
+                                 paren.geno = data.frame(oref[i,parents.id], oalt[i,parents.id]),
+                                 ploidy = ploidy)
   }
   
-  ploidy2 <- ploidy
   cl <- parallel::makeCluster(as.numeric(cores))
   registerDoParallel(cl)
-  clusterExport(cl, c("supermassa_parallel_poly", "ploidy2"))
-  result <- parLapply(cl, depths_prepared, function(x) supermassa_parallel_poly(supermassa_4parallel = x, ploidy = ploidy2))
+  clusterExport(cl, c("supermassa_parallel_poly"))
+  result <- parLapply(cl, depths_prepared, function(x) supermassa_parallel_poly(supermassa_4parallel = x))
   parallel::stopCluster(cl)
   mks <- unlist(lapply(result, "[", 1)) 
   geno <- t(sapply(result, "[[", 2))
@@ -720,7 +720,8 @@ supermassa_genotype_vcf <- function(vcf=NULL,
 ##' Extract from the SuperMassa output, the offspring genotype, the marker type, and the error
 ##' probabilities
 ##' @export
-supermassa_parallel_poly <- function(supermassa_4parallel,ploidy){
+supermassa_parallel_poly <- function(supermassa_4parallel){
+  ploidy <- supermassa_4parallel[[5]]
   n.ind <- length(supermassa_4parallel[[2]])
   all.ind.names <- supermassa_4parallel[[2]]
   write.table(supermassa_4parallel[[3]], file = paste0("odepth_temp", supermassa_4parallel[[1]],".txt"), quote = FALSE, col.names = FALSE)
