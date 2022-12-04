@@ -85,3 +85,19 @@ write_report <- function(tab, out_name, max_cores=1) {
   vroom::vroom_write(tab, paste0(out_name, ".tsv.gz"), num_threads= max_cores)
 }
 
+recode_geno_vcf <- function(x, ploidy) {
+  
+  genos <- list()
+  for(i in 1:(ploidy+1)){
+    genos[[i]] <- c(rep(0, ploidy - c(0:(ploidy+1))[i]), rep(1, c(0:(ploidy+1))[i]))
+  }
+  
+  genos <- sapply(genos, function(x) paste0(x, collapse = "/"))
+  names(genos) <- ploidy:0
+  
+  y <- genos[match(x, names(genos))]
+  
+  if(is(x, "matrix")) y <- matrix(y, nrow = nrow(x))
+  
+  return(y)
+}

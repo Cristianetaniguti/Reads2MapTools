@@ -294,18 +294,23 @@ recode_parents_pl <- function(parent.geno){
 #' @importFrom tidyr pivot_wider
 #' 
 #' @export
-polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
-  # Do the checks
+polyRAD_genotype_vcf <- function(vcf,
+                                 parent1, 
+                                 parent2, 
+                                 ploidy = 4,
+                                 out_vcf = "out.vcf.gz"){
+  
   vcf_in <- read.vcfR(vcf)
+  gt_in <- extract.gt(vcf_in)
   
-  poly.test <- VCF2RADdata(vcf, phaseSNPs = FALSE, 
-                           min.ind.with.reads = 0,
-                           min.ind.with.minor.allele = 0)
+  mydata <-  VCF2RADdata(vcf, phaseSNPs = FALSE,
+                         min.ind.with.reads = 0,
+                         min.ind.with.minor.allele = 0, taxaPloidy = ploidy)
   
-  poly.test <- SetDonorParent(poly.test, parent1)
-  poly.test <- SetRecurrentParent(poly.test, parent2)
+  mydata <- SetDonorParent(mydata, parent1)
+  mydata <- SetRecurrentParent(mydata, parent2)
   
-  mydata2 <- PipelineMapping2Parents(poly.test, 
+  mydata2 <- PipelineMapping2Parents(mydata, 
                                      freqAllowedDeviation = 0.06,
                                      useLinkage = FALSE)
   
@@ -317,7 +322,7 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   
   RADdata2VCF(mydata2, file = "temp.vcf")
   vcf_geno <- read.vcfR("temp.vcf")  
-  
+  file.remove("temp.vcf")
   # this will change according to the vcf - bug!! Need attention!
   if(any(grepl(":", as.character(genotypes$V1)))){
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
@@ -328,7 +333,7 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
     pos <- sapply(temp_list, function(x) if(length(x) > 2) paste0(x[1:2], collapse = "_") else x[1])
   }
   
-  probs <- genotypes[,3:5]
+  probs <- genotypes[,-c(1,2)]
   # Check if sum 1
   probs <- t(apply(probs, 1, function(x) x/sum(x)))
   probs_phr <- t(apply(probs, 1, function(x) -10*log(x, base = 10)))
@@ -338,7 +343,11 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   if(length(which(is.na(probs_phr))) > 0)
     probs_phr[which(is.na(probs_phr))] <- 0
   
-  gqs <- apply(probs_phr, 1, function(x) x[-c(which.min(x), which.max(x))])
+  gqs <- apply(probs_phr, 1, function(x) {
+    temp <- x[-which.min(x)]
+    temp[which.min(temp)]
+  })
+  
   probs_phr <- apply(probs_phr, 1, function(x) paste0(floor(x), collapse = ","))
   probs_phr <- paste0(probs_phr, ":",floor(gqs))
   
@@ -347,11 +356,9 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   
   # temporary
   gt <- extract.gt(vcf_geno)
-  gt.p <- gt[,which(colnames(gt) %in% c(parent1, parent2))]
-  
-  gt.p[which(gt.p == "1/1")] <- "99,99,0:99"
-  gt.p[which(gt.p == "0/0")] <- "0,99,99:99"
-  gt.p[which(gt.p == "0/1")] <- "99,0,99:99"
+
+  diffe <- sum(gt_in[match(row.names(gt), row.names(gt_in)),] != gt, na.rm = T)/length(gt)
+  cat(paste("This approach changed", round(diffe*100, 2), "% of the genotypes"))
   
   vcf_geno@fix[,3] <- paste0(vcf_geno@fix[,1], "_", vcf_geno@fix[,2])
   
@@ -360,9 +367,9 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   if(!all(is.na(idx))) {
     vcf_geno@fix <- vcf_geno@fix[idx,]
     vcf_geno@gt <- vcf_geno@gt[idx,]
-    gt.p <- gt.p[idx,]
   }
-  probs_ind <- cbind(probs_ind, gt.p)
+  probs_ind <- cbind(probs_ind, ".:.", ".:.")
+  colnames(probs_ind)[length(probs_ind):(length(probs_ind)-1)] <- c(parent1, parent2)
   
   idx <- match(colnames(vcf_geno@gt)[-1], colnames(probs_ind))
   
@@ -373,6 +380,6 @@ polyRAD_genotype_vcf <- function(vcf, parent1, parent2, outfile = "out.vcf.gz"){
   
   vcf_geno@meta[length(vcf_geno@meta) + 1] <- "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">"
   vcf_geno@meta[length(vcf_geno@meta) + 1] <- "##FORMAT=<ID=PL,Number=R,Type=Float,Description=\"Normalized, Phred-scaled likelihoods for AA,AB,BB genotypes where A=ref and B=alt; not applicable it site is not biallelic\">"
-  write.vcf(vcf_geno, file = outfile)
+  write.vcf(vcf_geno, file = out_vcf)
 }
 

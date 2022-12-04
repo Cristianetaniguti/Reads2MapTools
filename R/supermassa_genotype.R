@@ -336,7 +336,7 @@ depth_prepare <- function(extracted_depth){
 ##' Extract from the SuperMassa output, the offspring genotype, the marker type, and the error
 ##' probabilities
 ##' @export
-supermassa_parallel <- function(supermassa_4parallel, class=NULL){
+supermassa_parallel <- function(supermassa_4parallel, class=NULL, ploidy){
   n.ind <- length(supermassa_4parallel[[2]])
   all.ind.names <- supermassa_4parallel[[2]]
   if(length(which(supermassa_4parallel[[4]][,1] == 0 & supermassa_4parallel[[4]][,2]== 0)) > 0) {
@@ -366,8 +366,8 @@ supermassa_parallel <- function(supermassa_4parallel, class=NULL){
     out_file <- paste0("out_prob",supermassa_4parallel[[1]],".txt")
     
     command_mass <- paste("python", paste0(system.file(package = "Reads2MapTools"),"/python_scripts/","SuperMASSA.py"),
-                          "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range 2 ",
-                          "--f1_parent_data", paste0(getwd(),"/",pdepth_temp), 
+                          "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range ", ploidy,
+                          " --f1_parent_data", paste0(getwd(),"/",pdepth_temp), 
                           " --print_genotypes --naive_posterior_reporting_threshold 0",
                           "--save_geno_prob_dist", paste0(getwd(),"/",out_file))
     
@@ -551,3 +551,235 @@ recode_parents_sm <- function(x) {
   }
 }
 
+# Contains supermassa_error, depth_prepare and supermassa_parallel
+
+##' Runs SuperMassa for multiple markers using doParallel packages
+##' Updates OneMap object in genotypes, error probabilitie and marker type
+##' Also removes non-informative markers according to SuperMassa genotyping.
+##' @param vcf path and name of the vcf file
+##' @param vcf.par Field of VCF that informs the depth of alleles
+#' @param out_vcf path and name of the vcf file to be outputed from the generated onemap object. 
+#' It is important to notice that only onemap informative markers are kept.
+##' @param parent1 parent 1 identification in vcfR object
+##' @param parent2 parent 2 identification in vcfR objetc
+##' @param f1 f1 individual identification if f2 cross type
+##' @param crosstype string defining the cross type, by now it supports only 
+##' outcross and f2 intercross
+##' @param cores number of threads 
+##' 
+##' @import doParallel parallel
+##' 
+##' @importFrom matrixStats logSumExp
+##' @import vcfR 
+##' 
+##' @export
+supermassa_genotype_vcf <- function(vcf=NULL,
+                                    vcf.par = c("AD", "DPR"),
+                                    out_vcf = NULL,
+                                    parent1="P1",
+                                    parent2="P2",
+                                    crosstype=NULL,
+                                    cores = 2,
+                                    ploidy = NULL){
+  
+  if(is.null(ploidy)) stop("Define a ploidy number.")
+  if(crosstype != "outcross") stop("Invalid crosstype.")
+  
+  vcfR.object <- read.vcfR(vcf, verbose = F) 
+  input_gt <- extract.gt(vcfR.object)
+  
+  depths <- extract.gt(vcfR.object, vcf.par)
+  parents.id <- which(colnames(depths) %in% c(parent1, parent2))
+  
+  # Remove missing data
+  rm.mks <- which(apply(depths[,parents.id],1, function(x) any(is.na(x))))
+  depths <- depths[-rm.mks,]
+  oref <- sapply(strsplit(depths, ","), "[[",1)
+  oref <- matrix(oref, nrow = nrow(depths))
+  oref <- apply(oref, 2, as.numeric)
+  osize <- extract.gt(vcfR.object, "DP")
+  osize <- osize[-rm.mks,]
+  osize <- apply(osize, 2, as.numeric)
+  oalt <- osize - oref
+  colnames(oref) <- colnames(oalt) <- colnames(depths)
+  rownames(oref) <- rownames(oalt) <- rownames(depths)
+  
+  # Replace NA by 0
+  oref[is.na(oref)] <- 0
+  oalt[is.na(oalt)] <- 0
+  
+  depths_prepared <- list()
+  for(i in 1:nrow(depths)){
+    prog.geno = data.frame(oref[i,-parents.id], oalt[i,-parents.id])
+    inds <- colnames(depths)[-parents.id]
+    depths_prepared[[i]] <- list(mk=rownames(depths)[i], 
+                                 inds= inds,
+                                 prog.geno = prog.geno,
+                                 paren.geno = data.frame(oref[i,parents.id], oalt[i,parents.id]))
+  }
+  
+  cl <- parallel::makeCluster(as.numeric(cores))
+  registerDoParallel(cl)
+  clusterExport(cl, c("supermassa_parallel_poly", "ploidy", "parse.geno"))
+  result <- parLapply(cl, depths_prepared, function(x) supermassa_parallel_poly(supermassa_4parallel = x, ploidy = ploidy))
+  parallel::stopCluster(cl)
+  mks <- unlist(lapply(result, "[", 1))
+  geno <- t(sapply(result, "[[", 2))
+  error <- lapply(result, "[[", 3)
+  error <- do.call(rbind, error)
+  pgeno <-t(sapply(result, "[[", 4))
+  
+  geno <- cbind(geno, pgeno)
+
+  geno_recode <- recode_geno_vcf(geno, ploidy)
+
+  diffe <- sum(geno_recode != input_gt[-rm.mks,], na.rm = T)/length(geno_recode)
+  cat(paste("The approach changed", round(diffe*100,2), "% of the genotypes"))
+  
+  # set ord mk 1 2 3 ind 1 1 1
+  idx <- rep(1:length(unique(error[,2])), length(unique(error[,1])))
+  error <- error[order(idx),]
+  probs <- as.matrix(apply(error[,-c(1,2)],2,as.numeric))
+  
+  # PL
+  PL <- probs
+  PL <- -10*log(PL, base = 10)
+  PL <- apply(PL, 2, function(x) {
+    x[which(x == "Inf" | x == "-Inf" | x > 99)] <- 99
+    return(x)
+  })
+  
+  if(length(which(is.na(PL))) > 0)
+    PL[which(is.na(PL))] <- 0
+  PL <- t(apply(PL, 1, function(x) x-x[which.min(x)]))
+  PL <- floor(PL)
+  
+  GQ <- apply(PL, 1, function(x) {
+    temp <- x[-which.min(x)]
+    temp[which.min(temp)]
+  })
+  
+  PL[is.na(probs)] <- "."
+  GQ[which(GQ==0)] <- "."
+  
+  PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ","))
+  PL <- paste0(GQ, ":",PL)
+  PL <- split(PL, rep(1:length(mks), each = length(colnames(depths))-2))
+  PL <- do.call(rbind, PL)
+  PL <- cbind(PL, ":.:.:.", ":.:.:.")
+  
+  depths_temp <- depths[,-parents.id]
+  depths <- cbind(depths_temp, depths[,parents.id])
+  
+  gt <- matrix(paste0(geno_recode, ":", 
+                      depths, ":", 
+                      PL),  
+               nrow = dim(geno_recode)[1])
+  
+  
+  colnames(gt)  <- colnames(depths)
+  rownames(gt)  <- mks
+  
+  FORMAT <- "GT:AD:GQ:PL"
+  
+  gt <- cbind(FORMAT, gt)
+  
+  new.vcfR.object <- vcfR.object
+  new.vcfR.object@gt <- gt
+  new.vcfR.object@meta[2] <- "##source=Reads2MapTools"
+  
+  keep <- c(grep("=GT,", new.vcfR.object@meta),
+            grep(vcf.par, new.vcfR.object@meta),
+            grep("=GQ,", new.vcfR.object@meta),
+            grep("=PL,", new.vcfR.object@meta))
+  
+  new.vcfR.object@meta <- new.vcfR.object@meta[c(1,2, keep)]
+  new.vcfR.object@fix <- new.vcfR.object@fix[-rm.mks,]
+  new.vcfR.object@fix[,3] <- paste0(new.vcfR.object@fix[,1],"_",new.vcfR.object@fix[,2])
+  new.vcfR.object@fix[,"INFO"] <- "."
+  
+  write.vcf(new.vcfR.object, file =  out_vcf)
+}
+
+##' Use output list from depth_prepare and run Supermassa for each marker (first level of the list)
+##' Extract from the SuperMassa output, the offspring genotype, the marker type, and the error
+##' probabilities
+##' @export
+supermassa_parallel_poly <- function(supermassa_4parallel,ploidy){
+  n.ind <- length(supermassa_4parallel[[2]])
+  all.ind.names <- supermassa_4parallel[[2]]
+  write.table(supermassa_4parallel[[3]], file = paste0("odepth_temp", supermassa_4parallel[[1]],".txt"), quote = FALSE, col.names = FALSE)
+  write.table(supermassa_4parallel[[4]], file = paste0("pdepth_temp", supermassa_4parallel[[1]],".txt"), quote = FALSE, col.names = FALSE)
+  odepth_temp <- paste0("odepth_temp", supermassa_4parallel[[1]],".txt")
+  pdepth_temp <- paste0("pdepth_temp", supermassa_4parallel[[1]],".txt")
+  out_file <- paste0("out_prob",supermassa_4parallel[[1]],".txt")
+  
+  command_mass <- paste("python", paste0(system.file(package = "Reads2MapTools"),"/python_scripts/","SuperMASSA.py"),
+                        "--inference f1 --file", paste0(getwd(),"/",odepth_temp), "--ploidy_range ", ploidy,
+                        " --f1_parent_data", paste0(getwd(),"/",pdepth_temp), 
+                        " --print_genotypes --naive_posterior_reporting_threshold 0",
+                        "--save_geno_prob_dist", paste0(getwd(),"/",out_file))
+  
+  SuperMASSA.output<-system(command_mass, intern=TRUE)
+  
+  file.remove(odepth_temp,pdepth_temp)
+  
+  ############ Start code from Molli
+  
+  ## Assessing estimated ploidy level
+  est.ploidy<-as.numeric(strsplit(SuperMASSA.output[4], split = " |,")[[1]][6])
+  #cat(" (ploidy ", est.ploidy, ") ", sep = "")
+  
+  ## Assessing estimated parental dosage
+  dpdq <- as.numeric(strsplit(x = SuperMASSA.output[4], split = "\\(|,")[[1]][c(5,8)])
+  
+  ## Reading SuperMASSA output
+  d<-scan(file=out_file, what="character", nlines=1, quiet = TRUE)
+  P<-matrix(as.numeric(gsub("[^0-9]", "", unlist(d))), ncol=2, byrow=TRUE)
+  A<-read.table(file=out_file, skip=1)
+  file.remove(out_file)
+  M<-matrix(NA, nrow = length(all.ind.names), ncol = est.ploidy+1,
+            dimnames = list(all.ind.names, c(0:est.ploidy)))
+  M.temp<-apply(A[,2:(est.ploidy+2)], 2, parse.geno)
+  if(is(M.temp, "numeric")) M.temp <- t(as.matrix(M.temp))
+  M.temp<-M.temp[,order(P[,2], decreasing=TRUE)]
+  if(is(M.temp,"numeric")) M.temp <- t(as.matrix(M.temp))
+  dimnames(M.temp)<-list(as.character(A[,1]), c(0:est.ploidy))
+  M[rownames(M.temp),]<-M.temp
+  mrk1<-apply(M, 1, function(x) exp(x-matrixStats::logSumExp(x)))
+  
+  probs <- t(mrk1)
+  probs <- data.frame(mrk = supermassa_4parallel[[1]],
+                      ind = rownames(probs),
+                      probs)
+  rownames(probs)<-NULL
+  colnames(probs)<-c("mrk", "ind", 0:est.ploidy)
+  
+  pgeno_temp <- strsplit(SuperMASSA.output[grep("ploidy", SuperMASSA.output)], split = ":")
+  pgeno_temp <- unlist(strsplit(pgeno_temp[[1]][length(pgeno_temp[[1]])], split = ","))
+  pgeno_temp <- pgeno_temp[c(1,3)]
+  
+  pgeno <- rep(NA, 2)
+  for(t in 0:(est.ploidy)){
+    pgeno[grep(t, pgeno_temp)] <- t
+  }
+  
+  ind_geno <- unlist(lapply(strsplit(SuperMASSA.output[grep("\t", SuperMASSA.output)], split = "\t"), "[", 1))
+  ind_geno <- gsub('.{1}$', '', ind_geno)
+  geno <- unlist(lapply(strsplit(SuperMASSA.output[grep("\t", SuperMASSA.output)], split = "\t"), "[", 2))
+  
+  ind_geno_tot <- cbind(supermassa_4parallel[[2]], rep(NA, n.ind))
+  ind_geno_tot[,2][match(ind_geno,ind_geno_tot[,1])] <- geno
+  geno_one <- rep(NA, n.ind)
+  
+  
+  geno_temp <- sapply(strsplit(ind_geno_tot[,2], ","), "[[", 1)
+  geno_one <- rep(NA, n.ind)
+  for(t in 0:(est.ploidy)){
+    geno_one[grep(t, geno_temp)] <- t
+  }
+  
+  names(geno_one) <- all.ind.names
+  
+  return(list(mk= supermassa_4parallel[[1]],geno_one, probs, pgeno))
+}

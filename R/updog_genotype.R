@@ -267,7 +267,7 @@ updog_genotype <- function(vcf=NULL,
   
   # sort - order mk 1 2 3 ind 1 1 1 
   idx <- rep(1:length(unique(gene_est$inddf$ind)), 
-                      length(unique(gene_est$inddf$snp)))
+             length(unique(gene_est$inddf$snp)))
   genotypes_probs <- genotypes_probs[order(idx), ]
   
   # Check if sum 1
@@ -404,7 +404,7 @@ updog_genotype <- function(vcf=NULL,
   # sort - order mk 1 1 1 ind 1 2 3 
   idx <- rep(1:onemap_updog.new$n.mar, onemap_updog.new$n.ind)
   genotypes_probs <- genotypes_probs[order(idx), ]
-
+  
   if(!is.null(out_vcf)){
     onemap_write_vcfR(onemap.object = onemap_updog.new, 
                       out_vcf = out_vcf, 
@@ -498,3 +498,156 @@ recode_parents_up <- function(x) {
   x[which(x==2)] <- "0/0"
   return(x)
 }
+
+#' Run updog f1 model using allele depth from a VCF file and export the result also as VCF
+#'
+#' Uses alelle counts to reestimate genotypes with updog approach and 
+#' stores the genotypes probabilities or for further multipoint 
+#' analysis. This function only works with biallelic markers.
+#' 
+#' @param vcf path and name of the vcf file
+#' @param vcf.par Field of VCF that informs the depth of alleles
+#' @param out_vcf path and name of the vcf file to be outputed from the generated onemap object. 
+#' It is important to notice that only onemap informative markers are kept.
+#' @param cores number of threads 
+#' @param crosstype string defining the cross type, by now it supports only 
+#' outcross and f2 intercross
+#' @param parent1 parent 1 identification in vcfR object
+#' @param parent2 parent 2 identification in vcfR objetc
+#' 
+#' @return a VCF file
+#' 
+#' @author Cristiane Taniguti, \email{chtaniguti@@tamu.edu} 
+#' @seealso \url{https://github.com/dcgerard/updog}.
+#'     
+#'     
+#' @references 
+#'
+#' Gerard, D., Ferrão L.F.V., Garcia, A.A.F., & Stephens, M. (2018). Harnessing 
+#' Empirical Bayes and Mendelian Segregation for Genotyping Autopolyploids from 
+#' Messy Sequencing Data. bioRxiv. doi: 10.1101/281550.
+#'
+#' @import vcfR 
+#' @importFrom updog multidog
+#'   
+#' @export
+updog_genotype_vcf <- function(vcf=NULL,
+                               vcf.par = c("AD", "DPR"),
+                               out_vcf = NULL,
+                               parent1="P1",
+                               parent2="P2",
+                               crosstype=NULL,
+                               cores = 2,
+                               ploidy = NULL){
+  
+  if(is.null(ploidy)) stop("Define a ploidy number.")
+  
+  vcfR.object <- read.vcfR(vcf, verbose = F) 
+  input_gt <- extract.gt(vcfR.object)
+  
+  depths <- extract.gt(vcfR.object, vcf.par)
+  oref <- sapply(strsplit(depths, ","), "[[",1)
+  oref <- matrix(oref, nrow = nrow(depths))
+  oref <- apply(oref, 2, as.numeric)
+  osize <- extract.gt(vcfR.object, "DP")
+  osize <- apply(osize, 2, as.numeric)
+  colnames(oref) <- colnames(osize) <- colnames(depths)
+  rownames(oref) <- rownames(osize) <- rownames(depths)
+  
+  if(crosstype == "outcross"){
+    gene_est <- multidog(refmat  = oref,
+                         sizemat = osize,
+                         ploidy  = ploidy,
+                         p1_id = parent1,
+                         p2_id = parent2,
+                         model = "f1")
+    
+  } else {
+    stop("Crosstype not implemented")
+  }
+  
+  P1 <- gene_est$snpdf$p1geno
+  P2 <- gene_est$snpdf$p2geno
+  
+  geno_matrix <- matrix(gene_est$inddf$geno, 
+                        ncol = length(unique(gene_est$inddf$ind)), 
+                        byrow = T)
+  
+  genotypes_probs  <- gene_est$inddf[grep("Pr_", names(gene_est$inddf))]
+  
+  # sort - order mk 1 2 3 ind 1 1 1 
+  idx <- rep(1:length(unique(gene_est$inddf$ind)), 
+             length(unique(gene_est$inddf$snp)))
+  genotypes_probs <- genotypes_probs[order(idx), ]
+  
+  # Check if sum 1
+  probs <- t(apply(genotypes_probs, 1, function(x) x/sum(x)))
+  
+  P1 <- recode_geno_vcf(P1, ploidy)
+  P2 <- recode_geno_vcf(P2, ploidy)
+  
+  geno_matrix <- recode_geno_vcf(x = geno_matrix, ploidy)
+  
+  diffe <- sum(geno_matrix != input_gt[,-c(which(colnames(depths) %in% c(parent1, parent2)))], na.rm = T)/length(geno_matrix)
+  cat(paste("The approach changed", round(diffe,2)*100, "% of the genotypes."))
+  
+  names(P1) <- names(P2) <- rownames(geno_matrix) <- gene_est$snpdf$snp
+  colnames(geno_matrix) <- unique(gene_est$inddf$ind)
+  
+  # PL
+  PL <- probs
+  PL <- -10*log(PL, base = 10)
+  PL <- apply(PL, 2, function(x) {
+    x[which(x == "Inf" | x == "-Inf" | x > 99)] <- 99
+    return(x)
+  })
+  
+  if(length(which(is.na(PL))) > 0)
+    PL[which(is.na(PL))] <- 0
+  PL <- t(apply(PL, 1, function(x) x-x[which.min(x)]))
+  PL <- floor(PL)
+  
+  GQ <- apply(PL, 1, function(x) {
+    temp <- x[-which.min(x)]
+    temp[which.min(temp)]
+  })
+  
+  PL[is.na(probs)] <- "."
+  GQ[which(GQ==0)] <- "."
+  
+  PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ","))
+  PL <- paste0(GQ, ":",PL)
+  PL <- split(PL, rep(1:length(gene_est$snpdf$snp), each = length(unique(gene_est$inddf$ind))))
+  PL <- do.call(rbind, PL)
+  
+  gt <- matrix(paste0(geno_matrix, ":", 
+                      depths[,-c(which(colnames(depths) %in% c(parent1, parent2)))],":", 
+               PL),  
+               nrow = dim(geno_matrix)[1])
+  
+  parents <- matrix(c(paste0(P1, ":.:.:."), paste0(P2, ":.:.:.")), ncol = 2)
+  colnames(parents) <- c(parent1, parent2)
+  colnames(gt) <- colnames(geno_matrix)
+  rownames(gt) <- rownames(geno_matrix)
+  
+  FORMAT <- "GT:AD:GQ:PL"
+  
+  gt <- cbind(FORMAT, gt, parents)
+  
+  new.vcfR.object <- vcfR.object
+  new.vcfR.object@gt <- gt
+  new.vcfR.object@meta[2] <- "##source=Reads2MapTools"
+  
+  keep <- c(grep("=GT,", new.vcfR.object@meta),
+            grep(vcf.par, new.vcfR.object@meta),
+            grep("=GQ,", new.vcfR.object@meta),
+            grep("=PL,", new.vcfR.object@meta))
+  
+  new.vcfR.object@meta <- new.vcfR.object@meta[c(1,2, keep)]
+  new.vcfR.object@fix[,3] <- paste0(new.vcfR.object@fix[,1],"_",new.vcfR.object@fix[,2])
+  new.vcfR.object@fix[,"INFO"] <- "."
+  
+  write.vcf(new.vcfR.object, file =  out_vcf)
+}
+
+
