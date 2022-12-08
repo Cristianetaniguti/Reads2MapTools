@@ -672,7 +672,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   PL <- matrix(PL, nrow=length(mks))
   
   # Parents probs
-  zeros <- (ploidy + 1) - str_count(geno_recode[,parents.id], "0")
+  zeros <- (ploidy + 1) - str_count(geno_recode[,c(dim(geno_recode)[2]-1,dim(geno_recode)[2])], "0")
   template_all <- vector()
   for(i in 1:(ploidy + 1)){
     template <- rep(99, (ploidy + 1))

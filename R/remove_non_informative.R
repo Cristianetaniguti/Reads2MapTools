@@ -15,9 +15,11 @@ remove_non_informative <- function(vcf, P1, P2, out.vcf = "filtered.vcf.gz", rep
   if(replaceAD){
     dp <- extract.gt(obj, element = "DP")
     idx <- which(dp==0)
-    dp[idx] <- NA
-    # Replace AD and DP by 0 when GT is missing
-    obj@gt[,-1][which(is.na(gt))] <- obj@gt[,-1][idx][1]
+    if(length(idx) >0)  dp[idx] <- NA else idx <- is.na(dp)
+    if(length(idx) > 0){
+      # Replace AD and DP by 0 when GT is missing
+      obj@gt[,-1][which(is.na(gt))] <- obj@gt[,-1][idx][1]
+    }
   }
   
   # Remove phase information
