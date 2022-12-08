@@ -706,10 +706,11 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   new.vcfR.object@gt <- gt
   new.vcfR.object@meta[2] <- "##source=Reads2MapTools"
   
-  keep <- c(grep("=GT,", new.vcfR.object@meta),
-            grep(vcf.par, new.vcfR.object@meta),
-            grep("=GQ,", new.vcfR.object@meta),
-            grep("=PL,", new.vcfR.object@meta))
+  keep <- c("##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">",
+            "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">",
+            "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">",
+            "##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification\">")
+  
   
   new.vcfR.object@meta <- new.vcfR.object@meta[c(1,2, keep)]
   if(length(rm.mks) > 0) new.vcfR.object@fix <- new.vcfR.object@fix[-rm.mks,]

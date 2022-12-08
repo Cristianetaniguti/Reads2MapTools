@@ -670,11 +670,11 @@ updog_genotype_vcf <- function(vcf=NULL,
   new.vcfR.object@gt <- gt
   new.vcfR.object@meta[2] <- "##source=Reads2MapTools"
   
-  keep <- c(grep("=GT,", new.vcfR.object@meta),
-            grep(vcf.par, new.vcfR.object@meta),
-            grep("=DP", new.vcfR.object@meta),
-            grep("=GQ,", new.vcfR.object@meta),
-            grep("=PL,", new.vcfR.object@meta))
+  keep <- c("##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">",
+            "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">",
+            "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Approximate read depth; some reads may have been filtered\">",
+            "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">",
+            "##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification\">")
   
   new.vcfR.object@meta <- new.vcfR.object@meta[c(1,2, keep)]
   new.vcfR.object@fix[,3] <- paste0(new.vcfR.object@fix[,1],"_",new.vcfR.object@fix[,2])
