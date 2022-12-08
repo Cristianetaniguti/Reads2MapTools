@@ -665,6 +665,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   
   PL[is.na(probs)] <- "."
   GQ[which(GQ==0)] <- "."
+  GQ[is.na(GQ)] <- "."
 
   PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ",")) 
   PL <- paste0(GQ, ":",PL)
