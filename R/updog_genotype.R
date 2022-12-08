@@ -555,6 +555,10 @@ updog_genotype_vcf <- function(vcf=NULL,
   colnames(oref) <- colnames(osize) <- colnames(depths)
   rownames(oref) <- rownames(osize) <- rownames(depths)
 
+  idx <- which(osize==0)
+  osize[idx] <- NA
+  oref[idx] <- NA
+  
   if(crosstype == "outcross"){
     gene_est <- multidog(refmat  = oref,
                          sizemat = osize,
