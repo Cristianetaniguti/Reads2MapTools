@@ -628,8 +628,7 @@ updog_genotype_vcf <- function(vcf=NULL,
   
   PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ","))
   PL <- paste0(GQ, ":",PL)
-  PL <- split(PL, rep(1:length(gene_est$snpdf$snp), each = length(unique(gene_est$inddf$ind))))
-  PL <- do.call(rbind, PL)
+  PL <- matrix(PL, nrow = length(gene_est$snpdf$snp))
   geno_matrix[is.na(geno_matrix)] <- paste0(c(rep("./", ploidy-1),"."), collapse = "")
   depths[is.na(depths)] <- "."
   osize[is.na(osize)] <- "."
