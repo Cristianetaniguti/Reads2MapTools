@@ -645,9 +645,6 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   error <- error[order(idx),]
   probs <- as.matrix(apply(error[,-c(1,2)],2,as.numeric))
   
-  error[which(error$mrk == "Chr10_99721"),]
-  temp2 <- which(error$mrk == "Chr10_99721")
-  
   # PL
   PL <- probs
   PL <- -10*log(PL, base = 10)
@@ -668,10 +665,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   
   PL[is.na(probs)] <- "."
   GQ[which(GQ==0)] <- "."
-  
-  PL[temp2,]
-  PL[temp2]
-  
+
   PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ",")) 
   PL <- paste0(GQ, ":",PL)
   PL <- matrix(PL, nrow=length(mks))
@@ -730,7 +724,6 @@ supermassa_genotype_vcf <- function(vcf=NULL,
 ##' probabilities
 ##' @export
 supermassa_parallel_poly <- function(supermassa_4parallel){
-  supermassa_4parallel <- depths_prepared[[4]]
   ploidy <- supermassa_4parallel[[5]]
   n.ind <- length(supermassa_4parallel[[2]])
   all.ind.names <- supermassa_4parallel[[2]]
