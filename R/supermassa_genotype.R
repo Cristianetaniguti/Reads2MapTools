@@ -712,7 +712,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
             "##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification\">")
   
   
-  new.vcfR.object@meta <- new.vcfR.object@meta[c(1,2, keep)]
+  new.vcfR.object@meta <- c(new.vcfR.object@meta[c(1,2)], keep)
   if(length(rm.mks) > 0) new.vcfR.object@fix <- new.vcfR.object@fix[-rm.mks,]
   new.vcfR.object@fix[,3] <- paste0(new.vcfR.object@fix[,1],"_",new.vcfR.object@fix[,2])
   new.vcfR.object@fix[,"INFO"] <- "."
