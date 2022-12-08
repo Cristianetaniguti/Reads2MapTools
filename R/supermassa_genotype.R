@@ -687,6 +687,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   
   depths_temp <- depths[,-parents.id]
   depths <- cbind(depths_temp, depths[,parents.id])
+  depths[is.na(depths)] <- "."
   
   geno_recode[is.na(geno_recode)] <-  paste0(c(rep("./", ploidy-1),"."), collapse = "")
   
