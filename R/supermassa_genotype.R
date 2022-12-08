@@ -591,6 +591,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   
   depths <- extract.gt(vcfR.object, vcf.par)
   parents.id <- which(colnames(depths) %in% c(parent1, parent2))
+  if(length(parents.id) == 0) stop("We couldn't find these parents ID in the data set")
   
   # Remove missing data
   rm.mks <- which(apply(depths[,parents.id],1, function(x) any(is.na(x))))
@@ -644,6 +645,9 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   error <- error[order(idx),]
   probs <- as.matrix(apply(error[,-c(1,2)],2,as.numeric))
   
+  error[which(error$mrk == "Chr10_99721"),]
+  temp2 <- which(error$mrk == "Chr10_99721")
+  
   # PL
   PL <- probs
   PL <- -10*log(PL, base = 10)
@@ -665,10 +669,12 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   PL[is.na(probs)] <- "."
   GQ[which(GQ==0)] <- "."
   
-  PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ","))
+  PL[temp2,]
+  PL[temp2]
+  
+  PL <- apply(PL, 1, function(x) paste(rev(x), collapse = ",")) 
   PL <- paste0(GQ, ":",PL)
-  PL <- split(PL, rep(1:length(mks), each = length(colnames(depths))-2))
-  PL <- do.call(rbind, PL)
+  PL <- matrix(PL, nrow=length(mks))
   
   # Parents probs
   zeros <- (ploidy + 1) - str_count(geno_recode[,parents.id], "0")
@@ -687,7 +693,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   depths_temp <- depths[,-parents.id]
   depths <- cbind(depths_temp, depths[,parents.id])
   
-  geno_recode[is.na(geno_recode)] <- "."
+  geno_recode[is.na(geno_recode)] <-  paste0(c(rep("./", ploidy-1),"."), collapse = "")
   
   gt <- matrix(paste0(geno_recode, ":", 
                       depths, ":", 
@@ -724,6 +730,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
 ##' probabilities
 ##' @export
 supermassa_parallel_poly <- function(supermassa_4parallel){
+  supermassa_4parallel <- depths_prepared[[4]]
   ploidy <- supermassa_4parallel[[5]]
   n.ind <- length(supermassa_4parallel[[2]])
   all.ind.names <- supermassa_4parallel[[2]]
