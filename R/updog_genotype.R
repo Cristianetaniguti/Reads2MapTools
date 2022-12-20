@@ -532,12 +532,12 @@ recode_parents_up <- function(x) {
 #' @importFrom stringr str_count
 #'   
 #' @export
-updog_genotype_vcf <- function(vcf=NULL,
+updog_genotype_vcf <- function(vcf = NULL,
                                vcf.par = c("AD", "DPR"),
                                out_vcf = NULL,
-                               parent1="P1",
-                               parent2="P2",
-                               crosstype=NULL,
+                               parent1 = "P1",
+                               parent2 = "P2",
+                               crosstype = NULL,
                                cores = 2,
                                ploidy = NULL){
   
@@ -554,7 +554,7 @@ updog_genotype_vcf <- function(vcf=NULL,
   osize <- apply(osize, 2, as.numeric)
   colnames(oref) <- colnames(osize) <- colnames(depths)
   rownames(oref) <- rownames(osize) <- rownames(depths)
-
+  
   idx <- which(osize==0)
   osize[idx] <- NA
   oref[idx] <- NA
@@ -589,17 +589,19 @@ updog_genotype_vcf <- function(vcf=NULL,
   probs <- t(apply(genotypes_probs, 1, function(x) x/sum(x)))
   parents.id <- which(colnames(osize) %in% c(parent1, parent2))
   
-  P1 <- recode_geno_vcf(P1, ploidy,oref_cov = oref[,parents.id[1]], 
-                        osize_cov = osize[,parents.id[1]])
-  P2 <- recode_geno_vcf(P2, ploidy, oref_cov = oref[,parents.id[2]], 
-                        osize_cov = osize[,parents.id[2]])
+  keep.mks <- match(gene_est$snpdf$snp, rownames(oref))
+  
+  P1 <- recode_geno_vcf(P1, ploidy,oref_cov = oref[keep.mks,parents.id[1]], 
+                        osize_cov = osize[keep.mks,parents.id[1]])
+  P2 <- recode_geno_vcf(P2, ploidy, oref_cov = oref[keep.mks,parents.id[2]], 
+                        osize_cov = osize[keep.mks,parents.id[2]])
   
   geno_matrix <- recode_geno_vcf(x = geno_matrix, 
                                  ploidy,
-                                 oref_cov = oref[,-parents.id], 
-                                 osize_cov = osize[,-parents.id])
+                                 oref_cov = oref[keep.mks,-parents.id], 
+                                 osize_cov = osize[keep.mks,-parents.id])
   
-  diffe <- sum(geno_matrix != input_gt[,-c(which(colnames(depths) %in% c(parent1, parent2)))], na.rm = T)/length(geno_matrix)
+  diffe <- sum(geno_matrix != input_gt[keep.mks,-c(which(colnames(depths) %in% c(parent1, parent2)))], na.rm = T)/length(geno_matrix)
   cat(paste("The approach changed", round(diffe,2)*100, "% of the genotypes."))
   
   names(P1) <- names(P2) <- rownames(geno_matrix) <- gene_est$snpdf$snp
@@ -631,13 +633,15 @@ updog_genotype_vcf <- function(vcf=NULL,
   PL <- paste0(GQ, ":",PL)
   PL <- matrix(PL, nrow = length(gene_est$snpdf$snp))
   geno_matrix[is.na(geno_matrix)] <- paste0(c(rep("./", ploidy-1),"."), collapse = "")
-  depths[is.na(depths)] <- "."
-  osize[is.na(osize)] <- "."
+  depths_up <- depths[keep.mks,]
+  depths_up[is.na(depths_up)] <- ".,."
+  osize_up <- osize[keep.mks,]
+  osize_up[is.na(osize_up)] <- "."
   
   gt <- matrix(paste0(geno_matrix, ":", 
-                      depths[,-c(which(colnames(depths) %in% c(parent1, parent2)))],":", 
-                      osize[,-c(which(colnames(depths) %in% c(parent1, parent2)))], ":",
-               PL),  
+                      depths_up[,-c(which(colnames(depths) %in% c(parent1, parent2)))],":", 
+                      osize_up[,-c(which(colnames(depths) %in% c(parent1, parent2)))], ":",
+                      PL),  
                nrow = dim(geno_matrix)[1])
   
   
@@ -654,8 +658,8 @@ updog_genotype_vcf <- function(vcf=NULL,
   prob.parents <- matrix(prob.parents, ncol = 2)
   
   parents <- paste0(cbind(P1, P2), ":", 
-                    depths[,c(which(colnames(depths) %in% c(parent1, parent2)))],":",
-                    osize[,c(which(colnames(depths) %in% c(parent1, parent2)))],":",
+                    depths_up[,c(which(colnames(depths) %in% c(parent1, parent2)))],":",
+                    osize_up[,c(which(colnames(depths) %in% c(parent1, parent2)))],":",
                     prob.parents)
   parents <- matrix(parents, ncol = 2)
   
@@ -668,6 +672,7 @@ updog_genotype_vcf <- function(vcf=NULL,
   gt <- cbind(FORMAT, gt, parents)
   
   new.vcfR.object <- vcfR.object
+  gt[which(gt == "./.:.,.:.:.:.,.,.")] <- NA
   new.vcfR.object@gt <- gt
   new.vcfR.object@meta[2] <- "##source=Reads2MapTools"
   
@@ -678,6 +683,7 @@ updog_genotype_vcf <- function(vcf=NULL,
             "##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification\">")
   
   new.vcfR.object@meta <- c(new.vcfR.object@meta[c(1,2)], keep)
+  new.vcfR.object@fix <- new.vcfR.object@fix[keep.mks,]
   new.vcfR.object@fix[,3] <- paste0(new.vcfR.object@fix[,1],"_",new.vcfR.object@fix[,2])
   new.vcfR.object@fix[,"INFO"] <- "."
   
