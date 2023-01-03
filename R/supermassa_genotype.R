@@ -581,7 +581,8 @@ supermassa_genotype_vcf <- function(vcf=NULL,
                                     parent2="P2",
                                     crosstype=NULL,
                                     cores = 2,
-                                    ploidy = NULL){
+                                    ploidy = NULL,
+                                    max.missing = 0.9){
   
   if(is.null(ploidy)) stop("Define a ploidy number.")
   if(crosstype != "outcross") stop("Invalid crosstype.")
@@ -609,6 +610,15 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   # Replace NA by 0
   oref[is.na(oref)] <- 0
   oalt[is.na(oalt)] <- 0
+  
+  # Remove markers using max.missing threshold
+  rm.mks <- which(apply(osize, 1, function(x) sum((x == 0) | is.na(x))/length(x) > max.missing))
+  if(length(rm.mks) > 0) {
+    osize <- osize[-rm.mks,]
+    oref <- oref[-rm.mks,]
+    oalt <- oalt[-rm.mks,]
+    depths <- depths[-rm.mks,]
+  }
   
   depths_prepared <- list()
   for(i in 1:nrow(depths)){
