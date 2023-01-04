@@ -612,14 +612,13 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   oalt[is.na(oalt)] <- 0
   
   # Remove markers using max.missing threshold
-  rm.mks <- which(apply(osize, 1, function(x) sum((x == 0) | is.na(x))/length(x) > max.missing))
-  if(length(rm.mks) > 0) {
-    osize <- osize[-rm.mks,]
-    oref <- oref[-rm.mks,]
-    oalt <- oalt[-rm.mks,]
-    depths <- depths[-rm.mks,]
+  rm.mks2 <- which(apply(osize, 1, function(x) sum((x == 0) | is.na(x))/length(x) > max.missing))
+  if(length(rm.mks2) > 0) {
+    osize <- osize[-rm.mks2,]
+    oref <- oref[-rm.mks2,]
+    oalt <- oalt[-rm.mks2,]
+    depths <- depths[-rm.mks2,]
   }
-  
   depths_prepared <- list()
   for(i in 1:nrow(depths)){
     prog.geno = data.frame(oref[i,-parents.id], oalt[i,-parents.id])
@@ -647,6 +646,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
   geno_recode <- recode_geno_vcf(geno, ploidy, oref_cov = oref, osize_cov = osize)
 
   if(length(rm.mks) > 0) input_gt <- input_gt[-rm.mks,]
+  if(length(rm.mks2) > 0) input_gt <- input_gt[-rm.mks2,]
   diffe <- sum(geno_recode != input_gt, na.rm = T)/length(geno_recode)
   cat(paste("The approach changed", round(diffe*100,2), "% of the genotypes"))
   
