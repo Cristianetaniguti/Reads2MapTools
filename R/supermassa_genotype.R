@@ -673,7 +673,7 @@ supermassa_genotype_vcf <- function(vcf=NULL,
     temp[which.min(temp)]
   })
   
-  PL[is.na(probs)] <- "."
+  PL[is.na(probs)] <- "0"
   GQ[which(GQ==0)] <- "."
   GQ[is.na(GQ)] <- "."
 
