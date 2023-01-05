@@ -307,7 +307,7 @@ polyRAD_genotype_vcf <- function(vcf,
   mydata <-  VCF2RADdata(vcf, phaseSNPs = FALSE,
                          min.ind.with.reads = 0.05*ncol(gt_in),
                          min.ind.with.minor.allele = 0.05*ncol(gt_in), 
-                         taxaPloidy = ploidy, maxLoci = 1)
+                         taxaPloidy = ploidy) # Using maxLoci = 1 only process the first 23% of the markers in the rose dataset
   
   mydata <- SetDonorParent(mydata, parent1)
   mydata <- SetRecurrentParent(mydata, parent2)
