@@ -322,8 +322,14 @@ polyRAD_genotype_vcf <- function(vcf,
   
   file.remove(paste0("temp.file.",seed.uniq))
   
+  
+  
+  
   RADdata2VCF(mydata2, file = "temp.vcf")
   vcf_geno <- read.vcfR("temp.vcf")  
+  # temporary
+  gt <- extract.gt(vcf_geno)
+  
   file.remove("temp.vcf")
   # this will change according to the vcf - bug!! Need attention!
   if(any(grepl(":", as.character(genotypes$V1)))){
@@ -332,7 +338,12 @@ polyRAD_genotype_vcf <- function(vcf,
     pos <- gsub(":", "_", temp)
   } else {
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
+    check <- unique(sapply(temp_list, "[[", 1))
     pos <- sapply(temp_list, function(x) if(length(x) > 2) paste0(x[1:2], collapse = "_") else x[1])
+    if(grepl("^S", check)) {
+      pos <- gsub("S", "Chr", pos)
+      row.names(gt_in) <- gsub("S", "Chr", row.names(gt_in))
+    }
   }
   
   probs <- genotypes[,-c(1,2)]
@@ -356,9 +367,6 @@ polyRAD_genotype_vcf <- function(vcf,
   probs_ind <- cbind(ID = pos, ind = genotypes[,2], probs_phr)
   probs_ind <- pivot_wider(as.data.frame(probs_ind), names_from = 2, values_from = probs_phr)
   
-  # temporary
-  gt <- extract.gt(vcf_geno)
-
   diffe <- sum(gt_in[match(row.names(gt), row.names(gt_in)),] != gt, na.rm = T)/length(gt)
   cat(paste("This approach changed", round(diffe*100, 2), "% of the genotypes"))
   
@@ -403,4 +411,3 @@ polyRAD_genotype_vcf <- function(vcf,
   vcf_geno@meta[length(vcf_geno@meta) + 1] <- "##FORMAT=<ID=PL,Number=R,Type=Float,Description=\"Normalized, Phred-scaled likelihoods for AA,AB,BB genotypes where A=ref and B=alt; not applicable it site is not biallelic\">"
   write.vcf(vcf_geno, file = out_vcf)
 }
-
