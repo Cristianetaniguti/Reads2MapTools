@@ -319,11 +319,7 @@ polyRAD_genotype_vcf <- function(vcf,
   seed.uniq <- sample(100000, 1)
   Export_MAPpoly(mydata2, paste0("temp.file.", seed.uniq)) 
   genotypes <- read.table(paste0("temp.file.",seed.uniq), skip=12)
-  
   file.remove(paste0("temp.file.",seed.uniq))
-  
-  
-  
   
   RADdata2VCF(mydata2, file = "temp.vcf")
   vcf_geno <- read.vcfR("temp.vcf")  
@@ -331,16 +327,26 @@ polyRAD_genotype_vcf <- function(vcf,
   gt <- extract.gt(vcf_geno)
   
   file.remove("temp.vcf")
+  
+  # Fix names
+  new.names <- paste0(mydata2$locTable$Chr, "_", mydata2$locTable$Pos)
+  row.names(gt_in) <- new.names[match(row.names(gt_in), rownames(mydata2$locTable))]
+  
   # this will change according to the vcf - bug!! Need attention!
   if(any(grepl(":", as.character(genotypes$V1)))){
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
-    temp <- sapply(temp_list, function(x) paste0(x[-c(length(x)-1,length(x))], collapse = "_"))
-    pos <- gsub(":", "_", temp)
+    if(all(sapply(temp_list, length) == 2)) { # Stacks markers
+      mk.names <- sapply(temp_list, "[[", 1)
+      pos <- new.names[match(mk.names, rownames(mydata2$locTable))]
+    } else {
+      temp <- sapply(temp_list, function(x) paste0(x[-c(length(x)-1,length(x))], collapse = "_"))
+      pos <- gsub(":", "_", temp)
+    }
   } else {
     temp_list <- strsplit(as.character(genotypes$V1), split = "_")
     check <- unique(sapply(temp_list, "[[", 1))
     pos <- sapply(temp_list, function(x) if(length(x) > 2) paste0(x[1:2], collapse = "_") else x[1])
-    if(grepl("^S", check)) {
+    if(grepl("^S", check)) { # Tassel markers
       pos <- gsub("S", "Chr", pos)
       row.names(gt_in) <- gsub("S", "Chr", row.names(gt_in))
     }
