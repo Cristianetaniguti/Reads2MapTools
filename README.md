@@ -25,6 +25,6 @@ docker pull cristaniguti/reads2map:0.0.2
 
 Check features description and example of usage [here](https://cristianetaniguti.github.io/Tutorials/Reads2MapTools/Simulations.html).
 
-You can also find more details about the simulations and how they can be applied in the preprint:
+You can also find more details about the simulations and how they can be applied in:
 
 Taniguti, C. H.; Taniguti, L. M.; Amadeu, R. R.; Lau, J.; de Siqueira Gesteira, G.; Oliveira, T. de P.; Ferreira, G. C.; Pereira, G. da S.;  Byrne, D.;  Mollinari, M.; Riera-Lizarazu, O.; Garcia, A. A. F. Developing best practices for genotyping-by-sequencing analysis in the construction of linkage maps. GigaScience, 12, giad092. https://doi.org/10.1093/gigascience/giad092
